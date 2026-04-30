@@ -8,13 +8,14 @@ const DEFAULT_ERROR_STATUS = 500;
  * @deprecated Use {@link createEndpointStatusError} instead.
  * Keeping for backward compatibility during migration.
  */
-export const ENDPOINT_STATUS_API_ERROR = HttpResponse.json(
-  {
-    error: "EndpointStatusError",
-    message: ENDPOINT_STATUS_API_ERROR_MESSAGE,
-  },
-  { status: DEFAULT_ERROR_STATUS },
-);
+export const getEndpointStatusApiError = () =>
+  HttpResponse.json(
+    {
+      error: "EndpointStatusError",
+      message: ENDPOINT_STATUS_API_ERROR_MESSAGE,
+    },
+    { status: DEFAULT_ERROR_STATUS },
+  );
 
 /**
  * Creates a fresh JSON-body error response for endpoint-status-driven error
@@ -41,3 +42,5 @@ export const createEndpointStatusError = (status = DEFAULT_ERROR_STATUS) =>
 export const createEndpointStatusNetworkError = (
   status = DEFAULT_ERROR_STATUS,
 ) => new HttpResponse(null, { status });
+
+export const ENDPOINT_STATUS_API_ERROR = getEndpointStatusApiError();

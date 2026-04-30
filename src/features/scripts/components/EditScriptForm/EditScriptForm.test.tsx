@@ -1,9 +1,12 @@
+import { API_URL } from "@/constants";
 import { setEndpointStatus } from "@/tests/controllers/controller";
 import { scripts } from "@/tests/mocks/script";
 import { scriptProfiles } from "@/tests/mocks/scriptProfiles";
 import { renderWithProviders } from "@/tests/render";
+import server from "@/tests/server";
 import { fireEvent, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import type { ComponentProps } from "react";
 import { describe, it } from "vitest";
 import EditScriptForm from "./EditScriptForm";
@@ -214,28 +217,32 @@ describe("EditScriptForm", () => {
 
   it("renders singular associated instance link text", async () => {
     const user = userEvent.setup();
-    const associatedProfile = scriptProfiles.find(
-      (profile) => profile.id === ASSOCIATED_PROFILE_ID,
+    const modifiedProfiles = scriptProfiles.map((profile) =>
+      profile.id === ASSOCIATED_PROFILE_ID
+        ? { ...profile, computers: { num_associated_computers: 1 } }
+        : profile,
     );
-    assert(associatedProfile);
-    const originalAssociatedCount =
-      associatedProfile.computers.num_associated_computers;
-    associatedProfile.computers.num_associated_computers = 1;
+    server.use(
+      http.get(`${API_URL}scripts/:id/script-profiles`, () =>
+        HttpResponse.json({
+          results: modifiedProfiles,
+          count: modifiedProfiles.length,
+          next: null,
+          previous: null,
+        }),
+      ),
+    );
 
-    try {
-      renderWithProviders(<EditScriptForm script={script} />);
+    renderWithProviders(<EditScriptForm script={script} />);
 
-      await user.click(
-        screen.getByRole("button", { name: "Submit new version" }),
-      );
+    await user.click(
+      screen.getByRole("button", { name: "Submit new version" }),
+    );
 
-      expect(
-        await screen.findByRole("link", { name: "1 instance" }),
-      ).toHaveAttribute("href", ROUTES.instances.root());
-    } finally {
-      associatedProfile.computers.num_associated_computers =
-        originalAssociatedCount;
-    }
+    const instanceLinks = await screen.findAllByRole("link", {
+      name: "1 instance",
+    });
+    expect(instanceLinks[0]).toHaveAttribute("href", ROUTES.instances.root());
   });
 
   it("shows no data for associated profiles without instances", async () => {
