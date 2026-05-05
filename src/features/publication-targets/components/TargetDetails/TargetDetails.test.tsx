@@ -12,11 +12,30 @@ vi.mock("../../api/useGetPublicationsByTarget", () => ({
   default: vi.fn(),
 }));
 
-import useGetPublicationsByTarget from "../../api/useGetPublicationsByTarget";
+vi.mock("@/features/mirrors", () => ({
+  useBatchGetMirrors: () => ({
+    mirrorDisplayNames: {},
+    isLoadingMirrorDisplayNames: false,
+  }),
+}));
 
-const [targetWithPublications, targetWithoutPublications] = publicationTargets;
-const swiftMock = publicationTargets[2];
-const filesystemMock = publicationTargets[3];
+vi.mock("@/features/local-repositories", () => ({
+  useBatchGetLocals: () => ({
+    localDisplayNames: {},
+    isLoadingLocalDisplayNames: false,
+  }),
+}));
+
+import useGetPublicationsByTarget from "../../api/useGetPublicationsByTarget";
+import { NO_DATA_TEXT } from "@/components/layout/NoData/constants";
+import { LINK_METHOD_OPTIONS } from "../../constants";
+
+const [
+  targetWithPublications,
+  targetWithoutPublications,
+  swiftMock,
+  filesystemMock,
+] = publicationTargets;
 const [firstPublication] = publications;
 
 if (
@@ -29,6 +48,9 @@ if (
 if (!swiftMock?.swift) throw new Error("Missing swift mock target");
 if (!filesystemMock?.filesystem)
   throw new Error("Missing filesystem mock target");
+
+const swiftTarget = swiftMock.swift;
+const filesystemTarget = filesystemMock.filesystem;
 
 const s3WithPubs = targetWithPublications.s3;
 const s3WithoutPubs = targetWithoutPublications.s3;
@@ -235,8 +257,8 @@ describe("TargetDetails", () => {
         <TargetDetails target={swiftMock} />,
       );
 
-      expect(container).toHaveInfoItem("Container", swiftMock.swift!.container);
-      expect(container).toHaveInfoItem("Auth URL", swiftMock.swift!.authUrl);
+      expect(container).toHaveInfoItem("Container", swiftTarget.container);
+      expect(container).toHaveInfoItem("Auth URL", swiftTarget.authUrl);
     });
 
     it("renders optional tenant field when present", () => {
@@ -249,7 +271,7 @@ describe("TargetDetails", () => {
         <TargetDetails target={swiftMock} />,
       );
 
-      expect(container).toHaveInfoItem("Tenant", swiftMock.swift!.tenant ?? "");
+      expect(container).toHaveInfoItem("Tenant", swiftTarget.tenant ?? "");
     });
 
     it("does not render S3-specific fields", () => {
@@ -278,10 +300,11 @@ describe("TargetDetails", () => {
         <TargetDetails target={filesystemMock} />,
       );
 
-      expect(container).toHaveInfoItem("Path", filesystemMock.filesystem!.path);
+      expect(container).toHaveInfoItem("Path", filesystemTarget.path);
       expect(container).toHaveInfoItem(
         "Link method",
-        filesystemMock.filesystem!.linkMethod ?? "",
+        LINK_METHOD_OPTIONS.find((o) => o.value === filesystemTarget.linkMethod)
+          ?.label ?? NO_DATA_TEXT,
       );
     });
 

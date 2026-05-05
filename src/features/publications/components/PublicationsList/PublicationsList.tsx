@@ -16,7 +16,7 @@ import type { Publication } from "@canonical/landscape-openapi";
 import { DISPLAY_DATE_TIME_FORMAT } from "@/constants";
 import moment from "moment";
 import { ROUTES } from "@/libs/routes";
-import { NO_DATA_TEXT } from "@/components/layout/NoData/constants";
+import { NO_DATA_TEXT } from "@/components/layout/NoData";
 
 interface PublicationsListProps {
   readonly publications: Publication[];
@@ -65,10 +65,12 @@ const PublicationsList: FC<PublicationsListProps> = ({
             to={
               getSourceType(original.source) === "Mirror"
                 ? ROUTES.repositories.mirrors({
-                    search: sourceDisplayNames[original.source],
+                    sidePath: ["view"],
+                    name: original.source,
                   })
                 : ROUTES.repositories.localRepositories({
-                    search: sourceDisplayNames[original.source],
+                    sidePath: ["view"],
+                    name: original.source.replace(/^locals\//, ""),
                   })
             }
           >
@@ -83,7 +85,11 @@ const PublicationsList: FC<PublicationsListProps> = ({
         Cell: ({ row: { original } }: CellProps<Publication>) => (
           <StaticLink
             to={ROUTES.repositories.publicationTargets({
-              search: publicationTargetDisplayNames[original.publicationTarget],
+              sidePath: ["view"],
+              name: original.publicationTarget.replace(
+                /^publicationTargets\//,
+                "",
+              ),
             })}
           >
             {publicationTargetDisplayNames[original.publicationTarget] ??
