@@ -54,15 +54,11 @@ jobs:
 
       - name: Start backend stack
         working-directory: .landscape-packaging/docker/ui-dev
-        env:
-          CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
-          CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
         run: |
           _uid=$(id -u)
           _gid=$(id -g)
           _uname=$(whoami)
-          LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS="--with-computers --admin-email $CI_ADMIN_EMAIL --admin-name 'CI Test Admin' --admin-password $CI_ADMIN_PASSWORD" \
-            UID=$_uid GID=$_gid UNAME=$_uname \
+          UID=$_uid GID=$_gid UNAME=$_uname \
             docker compose \
               -p "ls-integration-${{ github.run_id }}" \
               up -d \
@@ -75,6 +71,17 @@ jobs:
             'until curl -sf --max-time 5 http://localhost:9091/api/v2/ && \
                    curl -sf --max-time 5 http://localhost:8080/; \
              do sleep 5; done'
+
+      - name: Seed admin account
+        working-directory: .landscape-packaging/docker/ui-dev
+        run: |
+          docker compose -p "ls-integration-${{ github.run_id }}" \
+            exec -T api \
+            uv run python bootstrap-account \
+              --admin_email "$CI_ADMIN_EMAIL" \
+              --admin_name "CI Test Admin" \
+              --admin_password "$CI_ADMIN_PASSWORD" \
+              --root_url "http://localhost:4173/"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4

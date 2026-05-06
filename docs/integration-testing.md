@@ -37,17 +37,26 @@ These must match the credentials you pass to `make up` in the next step.
 
 ### 1. Start the backend stack
 
-From your `landscape-packaging/docker/ui-dev/` directory. `LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS` tells the schema script to create the admin account and seed computer data at startup:
+From your `landscape-packaging/docker/ui-dev/` directory:
 
 ```bash
-CI_ADMIN_EMAIL=ci-admin@example.com
-CI_ADMIN_PASSWORD=mysecret
-
-LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS="--with-computers --admin-email $CI_ADMIN_EMAIL --admin-name 'CI Test Admin' --admin-password $CI_ADMIN_PASSWORD" \
-  make up
+make up
 ```
 
 Wait until both `http://localhost:9091/api/v2/` and `http://localhost:8080/` respond.
+
+### 1b. Seed the admin account
+
+Still from `landscape-packaging/docker/ui-dev/`. Use the same credentials as in step 0:
+
+```bash
+docker compose exec -T api \
+  uv run python bootstrap-account \
+  --admin_email "ci-admin@example.com" \
+  --admin_name "CI Test Admin" \
+  --admin_password "mysecret" \
+  --root_url "http://localhost:4173/"
+```
 
 ### 2. Build landscape-ui for integration
 
