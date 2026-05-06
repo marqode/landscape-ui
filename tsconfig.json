@@ -21,6 +21,6 @@
     "types": ["vitest/globals", "vitest/jsdom"],
     "noUncheckedIndexedAccess": true
   },
-  "include": ["src", "playwright.config.ts", "playwright.integration.config.ts", "vitest.config.ts"],
+  "include": ["src", "playwright.config.ts", "playwright.integration.config.ts", "vitest.config.ts", "e2e/integration/**/*.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

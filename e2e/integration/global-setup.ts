@@ -3,6 +3,8 @@ import fs from "fs";
 import path from "path";
 
 const STORAGE_STATE_PATH = "e2e/integration/.auth/state.json";
+// Must match playwright.integration.config.ts › use.baseURL; FullConfig is not
+// reliably populated when globalSetup runs ahead of webServer startup.
 const BASE_URL = "http://localhost:4173";
 const API_URL = "http://localhost:9091/api/v2/";
 
@@ -42,15 +44,18 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
   fs.mkdirSync(path.dirname(STORAGE_STATE_PATH), { recursive: true });
 
   const browser = await chromium.launch();
-  const context = await browser.newContext({ baseURL: BASE_URL });
-  const page = await context.newPage();
+  try {
+    const context = await browser.newContext({ baseURL: BASE_URL });
+    const page = await context.newPage();
 
-  await page.goto("/login");
-  await page.locator('input[name="identifier"]').fill(email);
-  await page.locator('input[name="password"]').fill(password);
-  await page.locator('button[type="submit"]').click();
-  await page.waitForURL(/overview/, { timeout: 30_000 });
+    await page.goto("/login");
+    await page.locator('input[name="identifier"]').fill(email);
+    await page.locator('input[name="password"]').fill(password);
+    await page.locator('button[type="submit"]').click();
+    await page.waitForURL(/overview/, { timeout: 30_000 });
 
-  await context.storageState({ path: STORAGE_STATE_PATH });
-  await browser.close();
+    await context.storageState({ path: STORAGE_STATE_PATH });
+  } finally {
+    await browser.close();
+  }
 }
