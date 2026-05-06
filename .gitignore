@@ -33,6 +33,7 @@ src/**/*.module.scss.d.ts
 *.sw?
 /test-results/
 /playwright-report/
+/playwright-integration-report/
 /playwright/
 .cert
 
