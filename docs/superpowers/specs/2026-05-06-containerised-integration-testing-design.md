@@ -19,8 +19,8 @@ Vitest unit tests use MSW and have no integration gap, but Playwright tests cann
 The goal is a CI job that:
 
 1. Boots landscape-server and landscape-go from their `main` branches as containers.
-2. Seeds a test account via `bootstrap-account`.
-3. Starts landscape-ui in dev mode pointing to those containers.
+2. Seeds a test account and sample data.
+3. Builds and previews landscape-ui pointing to those containers.
 4. Runs a scoped set of Playwright tests that make real HTTP calls.
 
 ---
@@ -32,85 +32,94 @@ The goal is a CI job that:
 ```
 ┌─────────────────────── GitHub Actions runner ───────────────────────────┐
 │                                                                         │
-│  1. Checkout landscape-packaging (PAT) with submodules                  │
-│  2. Override landscape-ui submodule with current branch's code           │
-│  3. docker compose -p ls-integration-$RUN_ID up -d (CI services only)   │
+│  1. Checkout landscape-ui (this repo, current branch) → workspace root  │
+│  2. Checkout landscape-packaging (PAT) → .landscape-packaging/          │
+│  3. docker compose up -d (Phase 1 service list, no debarchive)          │
 │         postgresql  ──healthcheck──►  builder (schema init)             │
 │         rabbitmq    ──healthcheck──►  api, appserver, …                 │
-│         (debarchive stack excluded in Phase 1 via explicit service list) │
-│  4. Poll API healthcheck (http://localhost:9091/)                        │
-│  5. Seed account: docker compose exec api uv run bootstrap-account       │
-│  6. Start landscape-ui dev server (pnpm dev, MSW=false)                  │
-│  7. Run playwright test --project=integration                            │
-│  8. Upload report, teardown stack                                        │
+│  4. Wait for auth path to be ready                                      │
+│  5. Seed: bootstrap-account → sample.py                                 │
+│  6. pnpm build:e2e + pnpm preview (Playwright owns the server)          │
+│  7. playwright test --config playwright.integration.config.ts           │
+│  8. Upload report, teardown stack                                       │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### 2.2 Repository checkout strategy
 
-`canonical/landscape-packaging` is a private monorepo that contains `landscape-server` and `landscape-go` as git submodules, and the `docker/ui-dev/` compose stack that drives the full backend. `landscape-ui` is also a submodule there.
+The workflow checks out two repositories independently:
 
-The workflow:
+1. **This repo** — normal `actions/checkout` into the workspace root. This is the landscape-ui being tested.
+2. **`canonical/landscape-packaging`** — checked out with `submodules: recursive` using `LANDSCAPE_PACKAGING_TOKEN` into `path: .landscape-packaging`. This provides `landscape-server/`, `landscape-go/`, and `docker/ui-dev/` without any submodule patching.
 
-1. Checks out `canonical/landscape-packaging` (with `submodules: recursive`) into the runner's workspace root using a PAT stored as `LANDSCAPE_PACKAGING_TOKEN`. This gives us the `landscape-server/`, `landscape-go/`, and `docker/ui-dev/` trees.
-2. Immediately overwrites the `landscape-ui/` subdirectory (the landscape-packaging submodule) by running a second `actions/checkout` step with `repository: ${{ github.repository }}` and `path: landscape-ui`. This replaces the pinned submodule content with the current branch's code before any Docker build occurs.
+Docker Compose is then run from `.landscape-packaging/docker/ui-dev/`. The `landscape-ui` service inside the compose stack is excluded by its `profiles: [ui]` guard and is never built or started — the workflow uses the normally-checked-out repo instead.
 
-This gives us the correct docker context structure (`landscape-server/`, `landscape-go/`, `docker/ui-dev/`) with the current branch's code in place, without duplicating or maintaining any Compose/Dockerfile files here.
+This replaces the previous submodule-override approach, which was unnecessary: CI never starts the `landscape-ui` Docker container.
 
 ### 2.3 Compose stack for CI
 
-The existing `docker/ui-dev/compose.yaml` is used as the base. Key points:
+`docker/ui-dev/compose.yaml` is used unmodified. Key points:
 
-- The `landscape-ui` service uses `profiles: [ui]` and is excluded from `docker compose up` by default. The UI dev server is started separately by the CI workflow (matching local dev practice).
-- `develop.watch` is inert without the explicit `--watch` flag — no override is needed for CI.
-- A unique compose project name (`ls-integration-${{ github.run_id }}`) prevents port and volume conflicts from concurrent manual runs.
+- The `landscape-ui` service uses `profiles: [ui]` — excluded by default. ✓
+- `develop.watch` is inert without the explicit `--watch` flag. ✓
+- A unique project name (`ls-integration-${{ github.run_id }}`) isolates concurrent runs.
 
-**CI service scope:** Phase 1 integration tests (login + computers list) do not require the debarchive stack. Rather than an override file, the `docker compose up` step lists only the services needed for Phase 1 explicitly:
+**Phase 1 service list** — only services required by login and computers-list flows:
 
 ```bash
 docker compose -p "ls-integration-${RUN_ID}" up -d \
   postgresql rabbitmq rsyslog builder \
-  package-search api appserver fake-openid \
-  async-frontend job-handler
+  package-search api appserver fake-openid
 ```
 
-This avoids building the `landscape-go` debarchive image entirely, significantly reducing cold-start time. A CI Compose override file (`docker/ci/compose.ci.yaml`) may be added to this repo in Phase 2 if finer-grained service control is needed.
+`async-frontend`, `hostagent-messenger`, `hostagent-consumer`, `pingserver`, `message-server`, `job-handler`, `package-upload`, `debarchive`, `debarchive-seeder`, `haproxy`, and `cert-generator` are excluded. Each excluded service is either not needed for the tested flows or adds startup time without providing contract value in Phase 1. The debarchive stack (including its seeder) is added in Phase 2 when debarchive flows are tested.
 
-### 2.4 Account seeding
+### 2.4 Readiness and account seeding
 
-After the `api` service is healthy, a test account is created:
+Waiting on `http://localhost:9091/` alone does not confirm the auth path is fully operational. The workflow polls both the API and appserver before proceeding:
 
+```bash
+timeout 180 bash -c 'until curl -sf http://localhost:9091/ && curl -sf http://localhost:8080/; do sleep 5; done'
+```
+
+Once both are healthy, seeding runs in two steps:
+
+**Step 1 — Account bootstrap:**
 ```bash
 docker compose -p "ls-integration-${RUN_ID}" exec -T api \
   uv run bootstrap-account \
   --admin_email "$CI_ADMIN_EMAIL" \
   --admin_name "CI Test Admin" \
   --admin_password "$CI_ADMIN_PASSWORD" \
-  --root_url "http://localhost:5173/"
+  --root_url "http://localhost:4173/"
 ```
 
-The password is generated fresh each run with `openssl rand -hex 16` and stored only in `$GITHUB_ENV`. It is never printed to logs and is discarded when the stack is torn down.
+**Step 2 — Sample data:**
+```bash
+docker compose -p "ls-integration-${RUN_ID}" exec -T api \
+  uv run sample
+```
 
-### 2.5 UI dev server
+`sample.py` creates deterministic sample computers and activities that integration tests can assert against. Including it in Phase 1 makes the computers-list smoke test viable without further setup, and mirrors how the landscape-packaging local dev environment is bootstrapped.
 
-landscape-ui is served using `pnpm dev` (Vite dev server, port 5173). This avoids a separate build step and matches local development practice. The `--root_url` passed to `bootstrap-account` points to this port.
+The password is generated once per run with `openssl rand -hex 16`, stored in `$GITHUB_ENV`, and never printed. `CI_ADMIN_EMAIL` is a fixed known value (e.g. `ci-admin@example.com`) set as a workflow-level env var.
 
-The integration Playwright project sets `baseURL: http://localhost:5173` and the workflow starts `pnpm dev` in the background before running tests. `reuseExistingServer: true` is set for the integration project so Playwright connects to the already-running server rather than launching its own.
+### 2.5 UI build and serve
 
-The dev server env uses:
+`pnpm build:e2e` compiles the app with absolute API URLs baked in, then Playwright owns the preview server lifecycle via its `webServer` block in `playwright.integration.config.ts`.
+
+Build env vars (no proxy needed — absolute URLs only):
 
 ```
-VITE_API_URL=/api/v2/
-VITE_API_URL_OLD=/api/
-VITE_API_URL_DEB_ARCHIVE=/v1beta1/
-VITE_API_PROXY_TARGET=http://localhost:9091
-VITE_API_DEBARCHIVE_PROXY_TARGET=http://localhost:8000
+VITE_API_URL=http://localhost:9091/api/v2/
+VITE_API_URL_OLD=http://localhost:9091/api/
+VITE_API_URL_DEB_ARCHIVE=http://localhost:8000/v1beta1/
 VITE_ROOT_PATH=/
 VITE_SELF_HOSTED_ENV=true
 VITE_MSW_ENABLED=false
 ```
 
-The relative paths (`/api/v2/`, `/v1beta1/`) are same-origin requests that Vite proxies to the respective backend targets. `VITE_API_URL_DEB_ARCHIVE` and `VITE_API_DEBARCHIVE_PROXY_TARGET` are included for completeness; debarchive is not part of the Phase 1 stack but the env is correct for Phase 2 when it is.
+`VITE_API_PROXY_TARGET` and `VITE_API_DEBARCHIVE_PROXY_TARGET` are omitted — they are only meaningful for the Vite dev server proxy and have no effect on a production preview build. `VITE_API_URL_DEB_ARCHIVE` is included for completeness; debarchive is not in the Phase 1 stack but the build value is correct for Phase 2.
 
 ---
 
@@ -128,64 +137,85 @@ The relative paths (`/api/v2/`, `/v1beta1/`) are same-origin requests that Vite 
 
 **Key steps (order):**
 
-| #   | Step                            | Notes                                                                           |
-| --- | ------------------------------- | ------------------------------------------------------------------------------- |
-| 1   | Checkout landscape-packaging    | `token: LANDSCAPE_PACKAGING_TOKEN`, `submodules: recursive`                     |
-| 2   | Override landscape-ui submodule | Second checkout, `path: landscape-ui`, current branch, `token: GITHUB_TOKEN`   |
-| 3   | Generate ephemeral password     | `openssl rand -hex 16 >> $GITHUB_ENV`                                           |
-| 4   | Start backend stack             | `docker compose up -d` with explicit Phase 1 service list                       |
-| 5   | Wait for API                    | `timeout 120 bash -c 'until curl -sf http://localhost:9091/; do sleep 3; done'` |
-| 6   | Seed account                    | `docker compose exec -T api uv run bootstrap-account` (underscored flags)       |
-| 7   | Install pnpm + Node             | pnpm 10, Node 24                                                                |
-| 8   | pnpm install                    | `--frozen-lockfile`, working-dir `landscape-ui`                                 |
-| 9   | Start dev server                | `pnpm dev &` with integration env vars (background process)                     |
-| 10  | Install Playwright              | `playwright install --with-deps chromium`                                       |
-| 11  | Run tests                       | `playwright test --project=integration`                                         |
-| 12  | Upload report                   | `if: always()`, 14-day retention                                                |
-| 13  | Teardown                        | `if: always()`, `docker compose down --remove-orphans --volumes`                |
+| #   | Step                               | Notes                                                                                    |
+| --- | ---------------------------------- | ---------------------------------------------------------------------------------------- |
+| 1   | Checkout landscape-ui              | Normal checkout, workspace root, current branch                                          |
+| 2   | Checkout landscape-packaging       | `token: LANDSCAPE_PACKAGING_TOKEN`, `submodules: recursive`, `path: .landscape-packaging` |
+| 3   | Generate ephemeral password        | `openssl rand -hex 16 >> $GITHUB_ENV`                                                    |
+| 4   | Start backend stack                | `docker compose up -d` with explicit Phase 1 service list                                |
+| 5   | Wait for API + appserver           | Poll both `:9091` and `:8080` before proceeding                                          |
+| 6   | Seed: bootstrap-account            | `docker compose exec -T api uv run bootstrap-account` (underscored flags)                |
+| 7   | Seed: sample data                  | `docker compose exec -T api uv run sample`                                               |
+| 8   | Install pnpm + Node                | pnpm 10, Node 24                                                                         |
+| 9   | pnpm install                       | `--frozen-lockfile`                                                                      |
+| 10  | Build UI                           | `pnpm run build:e2e` with absolute integration env vars                                  |
+| 11  | Install Playwright                 | `playwright install --with-deps chromium`                                                |
+| 12  | Run tests                          | `playwright test --config playwright.integration.config.ts`                              |
+| 13  | Upload report                      | `if: always()`, 14-day retention                                                         |
+| 14  | Teardown                           | `if: always()`, `docker compose down --remove-orphans --volumes`                         |
 
 ---
 
-## 4. Playwright Integration Project
+## 4. Playwright Integration Config
 
-A new project entry in `playwright.config.ts`:
+Integration tests use a **separate config file** (`playwright.integration.config.ts`) rather than a new project entry in the existing `playwright.config.ts`. This avoids conflicts with the global `webServer`, `testDir`, `testMatch`, and `baseURL` settings that assume the MSW-backed stack.
+
+Key config:
 
 ```ts
-{
-  name: "integration",
+// playwright.integration.config.ts
+export default defineConfig({
   testDir: "e2e/integration",
   testMatch: "**/*.integration.spec.ts",
-  use: {
-    ...devices["Desktop Chrome"],
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:5173",
+  workers: 1,           // shared backend state; no parallel mutation
+  retries: 1,
+  globalSetup: "./e2e/integration/global-setup.ts",
+
+  webServer: {
+    command: "pnpm preview",
+    url: "http://localhost:4173",
+    reuseExistingServer: false,
+    timeout: 60_000,
   },
-}
+
+  use: {
+    baseURL: "http://localhost:4173",
+    trace: "on-first-retry",
+    video: "retain-on-failure",
+    ignoreHTTPSErrors: true,
+  },
+});
 ```
 
-Integration tests live in `e2e/integration/` (separate from `e2e/features/`) and use the `.integration.spec.ts` suffix. This prevents the `saas` and `self-hosted` projects from accidentally matching integration tests, and prevents integration tests from running in the MSW-backed test matrix.
+**`global-setup.ts`** runs before any test and:
+1. Validates `CI_ADMIN_EMAIL` and `CI_ADMIN_PASSWORD` are set — fails fast if missing.
+2. Makes one authenticated API request to confirm the seeded account is reachable.
+3. Logs in via Playwright and writes `storageState` to `e2e/integration/.auth/state.json` so individual tests skip the login flow.
 
-The integration project uses `reuseExistingServer: true` (the dev server is started by the CI workflow before Playwright runs). Credentials are read from `CI_ADMIN_EMAIL` and `CI_ADMIN_PASSWORD` env vars.
+**`workers: 1`** is required in Phase 1. The backend is a shared mutable instance; parallel writes would introduce flakiness immediately. Tests are read-only against sample data.
 
 ---
 
 ## 5. Phase 1 Smoke Tests
 
-Two test files, covering the minimum surface needed to verify the real API contract:
+Two test files. Both reuse the `storageState` written by `global-setup.ts` — no per-test login needed.
 
 ### `e2e/integration/auth/login.integration.spec.ts`
 
-- Navigates to `/login`
-- Fills email (`CI_ADMIN_EMAIL`) and password (`CI_ADMIN_PASSWORD`)
+Does **not** use storageState (explicitly tests the login flow itself):
+- Navigates to `/login` in a fresh browser context
+- Fills `CI_ADMIN_EMAIL` and `CI_ADMIN_PASSWORD` from env
 - Submits the form
-- Asserts redirect to the dashboard (e.g., `/overview`)
+- Asserts redirect to dashboard (`/overview`)
 
 ### `e2e/integration/computers/computers.integration.spec.ts`
 
-- Authenticates (shared login helper that reads env vars)
+Uses storageState (authenticated):
 - Navigates to the computers list route
-- Asserts that the page renders at least one computer entry (validates the real `GET /api/v2/computers` response shape makes it to the UI)
+- Asserts that the page renders the sample computer(s) created by `uv run sample`
+- Verifies visible computer name/status (deterministic against seeded data)
 
-These tests do not use any MSW fixtures or mock interceptors. They make real HTTP calls to the running stack.
+This validates the real `GET /api/v2/computers` response shape makes it to the UI. Tests do not use any MSW fixtures or route interceptors. Integration fixtures must not reuse `e2e/support/fixtures/auth.ts` — that file mocks `**/standalone-account` by default and hardcodes credentials from `constants.ts`.
 
 ---
 
@@ -212,15 +242,12 @@ These tests do not use any MSW fixtures or mock interceptors. They make real HTT
 - [ ] `e2e/integration/computers/computers.integration.spec.ts`
 - [ ] `docs/integration-testing.md`
 
-### Phase 2 — Sample data and SaaS mode
+### Phase 2 — Sample data expansion and SaaS mode
 
-- [ ] Add sample data seeding steps after account bootstrap:
-  - `sample.py` (landscape-server) for computer and activity sample resources
-  - `debarchive-seed-curl.sh` (landscape-go) for debarchive sample data, requiring debarchive services in the stack
-- [ ] Add a matrix on `VITE_SELF_HOSTED_ENV` (true/false) to test both standalone and SaaS modes
-- [ ] Add `docker/ci/compose.ci.yaml` override file in this repo if more granular service control is needed
+- [ ] Add debarchive stack to the service list and run `debarchive-seed-curl.sh` after `sample.py`
+- [ ] Add matrix for SaaS mode — requires switching **both** `LANDSCAPE_DEPLOYMENT_MODE=default` (compose env) **and** `VITE_SELF_HOSTED_ENV=false` (UI build). Flipping only the UI env against a standalone backend is invalid.
 - [ ] Expand test coverage to cover mutations (create tag, run activity)
-- [ ] Measure cold-start time; add Docker layer caching or migrate to self-hosted runners
+- [ ] Measure cold-start time; investigate Docker layer caching on self-hosted runners
 
 ### Phase 3 — PR gating
 
@@ -232,14 +259,15 @@ These tests do not use any MSW fixtures or mock interceptors. They make real HTT
 
 ## 8. Risks and Open Questions
 
-| Risk / Question                                                        | Impact | Mitigation                                                                                |
-| ---------------------------------------------------------------------- | ------ | ----------------------------------------------------------------------------------------- |
-| GitHub-hosted runner cold-start for Docker builds is slow (10–25 min)  | Medium | Acceptable for workflow_dispatch; measure before expanding triggers                       |
-| `bootstrap-account` CLI arguments change between versions              | Low    | Interface confirmed; seeding step tested against `main` before Phase 1 merges             |
-| Docker network conflicts between concurrent runs                       | Low    | Unique project name `-p ls-integration-${{ github.run_id }}`                              |
-| Integration tests flaky due to service startup timing                  | Medium | Explicit healthcheck polling + Playwright `webServer.reuseExistingServer` for the UI port |
-| `LANDSCAPE_PACKAGING_TOKEN` scope must cover all three submodule repos | Medium | Use a classic PAT with `repo` scope or a fine-grained PAT scoped to the `canonical` org   |
-| Sensitive credentials exposed in logs                                  | Low    | Password generated per-run, stored in env, never echoed                                   |
+| Risk / Question | Impact | Mitigation |
+|-----------------|--------|------------|
+| Non-determinism from shared mutable backend | High | `workers: 1`; Phase 1 tests are read-only against seeded data |
+| GitHub-hosted runner cold-start for Docker builds (10–25 min) | Medium | Acceptable for workflow_dispatch; measure before adding push/schedule triggers |
+| `uv run sample` command interface not verified | Medium | Verify against landscape-server main before Phase 1 merges |
+| Docker network conflicts between concurrent runs | Low | Unique project name `-p ls-integration-${{ github.run_id }}` |
+| `LANDSCAPE_PACKAGING_TOKEN` scope must cover submodule repos | Medium | Use a classic PAT with `repo` scope or org-scoped fine-grained PAT |
+| SaaS mode requires full-stack switch, not just UI flag | High (Phase 2) | Matrix both `LANDSCAPE_DEPLOYMENT_MODE` and `VITE_SELF_HOSTED_ENV` together |
+| Sensitive credentials exposed in logs | Low | Password generated per-run, stored in env, never echoed |
 
 ---
 
