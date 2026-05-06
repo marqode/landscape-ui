@@ -26,35 +26,19 @@ Integration tests run Playwright against a real Landscape backend stack (landsca
 
 ### 1. Start the backend stack
 
-From your `landscape-packaging/docker/ui-dev/` directory. The `make up` target vendors landscape-go, creates bind-mount dirs, and starts the stack:
+From your `landscape-packaging/docker/ui-dev/` directory. Set credentials first, then `make up` — `LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS` tells the schema script to create the admin account and seed computer data at startup:
 
 ```bash
-make up
+export CI_ADMIN_EMAIL=ci-admin@example.com
+export CI_ADMIN_PASSWORD=mysecret
+
+LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS="--with-computers --admin-email $CI_ADMIN_EMAIL --admin-name 'CI Test Admin' --admin-password $CI_ADMIN_PASSWORD" \
+  make up
 ```
 
 Wait until both `http://localhost:9091/api/v2/` and `http://localhost:8080/` respond.
 
-### 2. Seed data
-
-Still from `landscape-packaging/docker/ui-dev/`. Export credentials first (must match Step 4):
-
-```bash
-export CI_ADMIN_EMAIL=ci-admin@example.com
-export CI_ADMIN_PASSWORD=mysecret   # change if you prefer
-```
-
-```bash
-docker compose exec -T api \
-  uv run python bootstrap-account \
-  --admin_email "$CI_ADMIN_EMAIL" \
-  --admin_name "CI Test Admin" \
-  --admin_password "$CI_ADMIN_PASSWORD" \
-  --root_url "http://localhost:4173/"
-
-docker compose exec -T api uv run schema --with-computers
-```
-
-### 3. Build landscape-ui for integration
+### 2. Build landscape-ui for integration
 
 From this repo's root:
 
@@ -68,13 +52,13 @@ VITE_MSW_ENABLED=false \
 pnpm run build:e2e
 ```
 
-### 3b. Install Playwright browsers (first time or after upgrades)
+### 2b. Install Playwright browsers (first time or after upgrades)
 
 ```bash
 pnpm exec playwright install chromium
 ```
 
-### 4. Run integration tests
+### 3. Run integration tests
 
 ```bash
 CI_ADMIN_EMAIL="$CI_ADMIN_EMAIL" \
