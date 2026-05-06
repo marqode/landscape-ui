@@ -10,8 +10,8 @@ Integration tests run Playwright against a real Landscape backend stack (landsca
 ## How to trigger in CI
 
 1. Go to **Actions → Integration Tests** in GitHub.
-2. Click **Run workflow**.
-3. Optionally supply `server_ref` / `go_ref` to test against a non-`main` backend branch.
+2. Click **Run workflow** (this is a `workflow_dispatch`-triggered workflow).
+3. The workflow accepts `server_ref` / `go_ref` inputs, but they are **reserved for future use** — the backend is currently pinned to `main` via the `landscape-packaging` submodule.
 
 **Required secret:** `LANDSCAPE_PACKAGING_TOKEN` — a PAT with `repo` scope on `canonical/landscape-packaging` (and its submodules `canonical/landscape-server`, `canonical/landscape-go`). Set this in **Settings → Secrets and variables → Actions**.
 
@@ -41,13 +41,20 @@ Wait until both `http://localhost:9091/api/v2/` and `http://localhost:8080/` res
 
 ### 2. Seed data
 
+Still from `landscape-packaging/docker/ui-dev/`. Export credentials first (must match Step 4):
+
+```bash
+export CI_ADMIN_EMAIL=ci-admin@example.com
+export CI_ADMIN_PASSWORD=mysecret   # change if you prefer
+```
+
 ```bash
 # Create admin account
 docker compose exec -T api \
   uv run bootstrap-account \
-  --admin_email ci-admin@example.com \
+  --admin_email "$CI_ADMIN_EMAIL" \
   --admin_name "CI Test Admin" \
-  --admin_password mysecret \
+  --admin_password "$CI_ADMIN_PASSWORD" \
   --root_url "http://localhost:4173/"
 
 # Seed sample computers and activities
@@ -68,11 +75,17 @@ VITE_MSW_ENABLED=false \
 pnpm run build:e2e
 ```
 
+### 3b. Install Playwright browsers (first time or after upgrades)
+
+```bash
+pnpm exec playwright install chromium
+```
+
 ### 4. Run integration tests
 
 ```bash
-CI_ADMIN_EMAIL=ci-admin@example.com \
-CI_ADMIN_PASSWORD=mysecret \
+CI_ADMIN_EMAIL="$CI_ADMIN_EMAIL" \
+CI_ADMIN_PASSWORD="$CI_ADMIN_PASSWORD" \
 pnpm exec playwright test --config playwright.integration.config.ts
 ```
 
