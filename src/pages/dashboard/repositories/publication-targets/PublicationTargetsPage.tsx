@@ -13,6 +13,7 @@ import {
   useGetPublicationTargets,
 } from "@/features/publication-targets";
 import { lazy, type FC } from "react";
+import LoadingState from "@/components/layout/LoadingState";
 
 const AddPublicationTargetForm = lazy(async () =>
   import("@/features/publication-targets").then((module) => ({
@@ -27,7 +28,7 @@ const EditTargetForm = lazy(async () =>
 );
 
 const PublicationTargetsPage: FC = () => {
-  const { lastSidePathSegment, name, popSidePath } = usePageParams();
+  const { lastSidePathSegment, name, popSidePathUntilClear } = usePageParams();
   const { publicationTargets, count, isGettingPublicationTargets } =
     useGetPublicationTargets();
 
@@ -38,7 +39,7 @@ const PublicationTargetsPage: FC = () => {
       <PageMain>
         <PageHeader title="Publication targets" />
         <PageContent>
-          <div>Loading publication targets...</div>
+          <LoadingState />
         </PageContent>
       </PageMain>
     );
@@ -93,8 +94,7 @@ const PublicationTargetsPage: FC = () => {
       <PageContent hasTable={hasTable}>{children}</PageContent>
 
       <SidePanel
-        // onClose={createPageParamsSetter({ sidePath: [], name: "" })}
-        onClose={popSidePath}
+        onClose={popSidePathUntilClear}
         isOpen={
           lastSidePathSegment === "add" ||
           (!!lastSidePathSegment && !!viewTarget)

@@ -63,7 +63,6 @@ const RepositoryProfileEditForm: FC = () => {
             profile={profile}
             aptSources={aptSources}
             onAptSourcesChange={setAptSources}
-            onClose={popSidePath}
             onAddSourceClick={createSidePathPusher("add-source")}
             onEditSourceClick={(source) => {
               setSourceToEdit(source);

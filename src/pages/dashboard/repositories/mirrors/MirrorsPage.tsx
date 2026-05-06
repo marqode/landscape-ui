@@ -40,7 +40,7 @@ const MirrorsPage: FC = () => {
     search,
     sidePath,
     lastSidePathSegment,
-    popSidePath,
+    popSidePathUntilClear,
     createPageParamsSetter,
   } = usePageParams();
 
@@ -99,7 +99,7 @@ const MirrorsPage: FC = () => {
     <PageMain>
       <PageHeader title="Mirrors" actions={actions} />
       <PageContent hasTable={hasTable}>{children}</PageContent>
-      <SidePanel onClose={popSidePath} isOpen={!!sidePath.length}>
+      <SidePanel onClose={popSidePathUntilClear} isOpen={!!sidePath.length}>
         {lastSidePathSegment === "add" && (
           <SidePanel.Suspense key="add">
             <AddMirrorForm />
