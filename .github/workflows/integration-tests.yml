@@ -1,0 +1,128 @@
+name: Integration Tests
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_ref:
+        description: "landscape-server ref (default: main)"
+        default: "main"
+        required: false
+      go_ref:
+        description: "landscape-go ref (default: main)"
+        default: "main"
+        required: false
+
+jobs:
+  integration-tests:
+    name: integration-tests
+    # Preferred runner when self-hosted pool is available (faster due to Docker layer cache):
+    # runs-on: [self-hosted, Linux, large]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      LANDSCAPE_DEPLOYMENT_MODE: standalone
+      CI_ADMIN_EMAIL: ci-admin@example.com
+
+    steps:
+      - name: Checkout landscape-ui
+        uses: actions/checkout@v4
+
+      - name: Checkout landscape-packaging (with submodules)
+        uses: actions/checkout@v4
+        with:
+          repository: canonical/landscape-packaging
+          token: ${{ secrets.LANDSCAPE_PACKAGING_TOKEN }}
+          submodules: recursive
+          path: .landscape-packaging
+
+      - name: Generate ephemeral CI password
+        run: echo "CI_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+
+      - name: Create landscape-server bind-mount directories
+        working-directory: .landscape-packaging/docker/ui-dev
+        run: mkdir -p ../../landscape-server/.venv ../../landscape-server/build ../../landscape-server/var/log
+
+      - name: Start backend stack
+        working-directory: .landscape-packaging/docker/ui-dev
+        env:
+          UID: ${{ env.UID }}
+          GID: ${{ env.GID }}
+        run: |
+          export UID=$(id -u) GID=$(id -g) UNAME=$(whoami)
+          docker compose \
+            -p "ls-integration-${{ github.run_id }}" \
+            up -d \
+            postgresql rabbitmq rsyslog builder \
+            package-search api appserver fake-openid
+
+      - name: Wait for API and appserver to be ready
+        run: |
+          timeout 180 bash -c \
+            'until curl -sf http://localhost:9091/ && curl -sf http://localhost:8080/; do sleep 5; done'
+
+      - name: Seed admin account
+        working-directory: .landscape-packaging/docker/ui-dev
+        run: |
+          docker compose -p "ls-integration-${{ github.run_id }}" \
+            exec -T api \
+            uv run bootstrap-account \
+              --admin_email "$CI_ADMIN_EMAIL" \
+              --admin_name "CI Test Admin" \
+              --admin_password "$CI_ADMIN_PASSWORD" \
+              --root_url "http://localhost:4173/"
+
+      - name: Seed sample data
+        working-directory: .landscape-packaging/docker/ui-dev
+        run: |
+          docker compose -p "ls-integration-${{ github.run_id }}" \
+            exec -T api \
+            uv run sample
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build landscape-ui for integration
+        run: pnpm run build:e2e
+        env:
+          VITE_API_URL: "http://localhost:9091/api/v2/"
+          VITE_API_URL_OLD: "http://localhost:9091/api/"
+          VITE_API_URL_DEB_ARCHIVE: "http://localhost:8000/v1beta1/"
+          VITE_ROOT_PATH: "/"
+          VITE_SELF_HOSTED_ENV: "true"
+          VITE_MSW_ENABLED: "false"
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run integration tests
+        run: pnpm exec playwright test --config playwright.integration.config.ts
+        env:
+          CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
+          CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-integration-report
+          path: playwright-integration-report
+          retention-days: 14
+
+      - name: Teardown backend stack
+        if: always()
+        working-directory: .landscape-packaging/docker/ui-dev
+        run: |
+          docker compose -p "ls-integration-${{ github.run_id }}" \
+            down --remove-orphans --volumes
