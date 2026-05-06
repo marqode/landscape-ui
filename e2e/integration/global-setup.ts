@@ -7,6 +7,8 @@ const STORAGE_STATE_PATH = "e2e/integration/.auth/state.json";
 // reliably populated when globalSetup runs ahead of webServer startup.
 const BASE_URL = "http://localhost:4173";
 const API_URL = "http://localhost:9091/api/v2/";
+const API_TIMEOUT_MS = 5_000;
+const HTTP_SERVER_ERROR_MIN = 500;
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
   const email = process.env.CI_ADMIN_EMAIL;
@@ -27,9 +29,9 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
   let apiReachable = false;
   try {
     const res = await fetch(API_URL, {
-      signal: AbortSignal.timeout(5_000),
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
     });
-    apiReachable = res.status < 500;
+    apiReachable = res.status < HTTP_SERVER_ERROR_MIN;
   } catch {
     // intentional
   }
