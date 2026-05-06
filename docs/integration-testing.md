@@ -1,0 +1,96 @@
+# Integration Testing
+
+Integration tests run Playwright against a real Landscape backend stack (landscape-server + landscape-go) running in Docker containers. They complement the existing MSW-backed E2E tests by verifying real API contract fidelity.
+
+## What they test (Phase 1)
+
+- Login via standalone auth with a seeded admin account
+- Instances list rendered from a real `GET /api/v2/computers` response
+
+## How to trigger in CI
+
+1. Go to **Actions → Integration Tests** in GitHub.
+2. Click **Run workflow**.
+3. Optionally supply `server_ref` / `go_ref` to test against a non-`main` backend branch.
+
+**Required secret:** `LANDSCAPE_PACKAGING_TOKEN` — a PAT with `repo` scope on `canonical/landscape-packaging` (and its submodules `canonical/landscape-server`, `canonical/landscape-go`). Set this in **Settings → Secrets and variables → Actions**.
+
+## How to run locally
+
+### Prerequisites
+
+- Docker + Docker Compose v2
+- Access to `canonical/landscape-packaging` cloned somewhere (e.g. `~/landscape-packaging`)
+- `pnpm` and Node 24 installed in this repo
+
+### 1. Start the backend stack
+
+From your `landscape-packaging/docker/ui-dev/` directory:
+
+```bash
+_uid=$(id -u)
+_gid=$(id -g)
+_uname=$(whoami)
+UID=$_uid GID=$_gid UNAME=$_uname \
+  docker compose up -d \
+  postgresql rabbitmq rsyslog builder \
+  package-search api appserver fake-openid
+```
+
+Wait until both `http://localhost:9091/api/v2/` and `http://localhost:8080/` respond.
+
+### 2. Seed data
+
+```bash
+# Create admin account
+docker compose exec -T api \
+  uv run bootstrap-account \
+  --admin_email ci-admin@example.com \
+  --admin_name "CI Test Admin" \
+  --admin_password mysecret \
+  --root_url "http://localhost:4173/"
+
+# Seed sample computers and activities
+docker compose exec -T api uv run sample
+```
+
+### 3. Build landscape-ui for integration
+
+From this repo's root:
+
+```bash
+VITE_API_URL=http://localhost:9091/api/v2/ \
+VITE_API_URL_OLD=http://localhost:9091/api/ \
+VITE_API_URL_DEB_ARCHIVE=http://localhost:8000/v1beta1/ \
+VITE_ROOT_PATH=/ \
+VITE_SELF_HOSTED_ENV=true \
+VITE_MSW_ENABLED=false \
+pnpm run build:e2e
+```
+
+### 4. Run integration tests
+
+```bash
+CI_ADMIN_EMAIL=ci-admin@example.com \
+CI_ADMIN_PASSWORD=mysecret \
+pnpm exec playwright test --config playwright.integration.config.ts
+```
+
+The HTML report is written to `playwright-integration-report/`.
+
+## Key design decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| Separate `playwright.integration.config.ts` | Avoids conflicts with MSW-backed `playwright.config.ts` (`webServer`, `testDir`, `baseURL`) |
+| `workers: 1` | Shared mutable backend; Phase 1 tests are read-only against seeded data |
+| `globalSetup` writes `storageState` | Individual tests skip login; login is tested once explicitly |
+| Absolute API URLs in build | `pnpm preview` doesn't run Vite's dev proxy; absolute URLs work without it |
+| Explicit service list in `docker compose up` | Avoids building debarchive (not needed in Phase 1), reducing cold-start time |
+
+## Phase 2 roadmap
+
+- Add debarchive stack + `debarchive-seed-curl.sh` seeding
+- SaaS mode matrix: requires **both** `LANDSCAPE_DEPLOYMENT_MODE=default` (compose) **and** `VITE_SELF_HOSTED_ENV=false` (UI build)
+- Expand to mutation tests (create tag, run activity)
+- Add nightly schedule + push-to-main triggers after stability is proven
