@@ -16,13 +16,14 @@ export default defineConfig({
 
   reporter: [["html", { open: "never", outputFolder: "playwright-integration-report" }], ["list"]],
 
-  // Playwright owns the preview server lifecycle.
-  // Run `pnpm run build:e2e` with integration env vars before running tests.
+  // Playwright manages the dev server lifecycle.
+  // No build step required — the Vite dev proxy routes /api → localhost:9091
+  // so cookies are same-origin and session auth persists across navigations.
   webServer: {
-    command: "pnpm preview --port 5173",
+    command: "vite --mode e2e",
     url: BASE_URL,
     reuseExistingServer: false,
-    timeout: 60_000,
+    timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",
   },

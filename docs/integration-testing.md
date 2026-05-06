@@ -58,15 +58,7 @@ docker exec landscape-api \
   --root_url "http://localhost:5173/"
 ```
 
-### 2. Build landscape-ui for integration
-
-From this repo's root. The integration vars are pre-configured in `.env.e2e`, which Vite loads automatically for this build mode:
-
-```bash
-pnpm run build:e2e
-```
-
-### 2b. Install Playwright browsers (first time or after upgrades)
+### 2. Install Playwright browsers (first time or after upgrades)
 
 ```bash
 pnpm exec playwright install chromium
@@ -89,7 +81,8 @@ The HTML report is written to `playwright-integration-report/`.
 | Separate `playwright.integration.config.ts` | Avoids conflicts with MSW-backed `playwright.config.ts` (`webServer`, `testDir`, `baseURL`) |
 | `workers: 1` | Shared mutable backend; Phase 1 tests are read-only against seeded data |
 | `globalSetup` writes `storageState` | Individual tests skip login; login is tested once explicitly |
-| Absolute API URLs in build | `pnpm preview` doesn't run Vite's dev proxy; absolute URLs work without it |
+| `vite --mode e2e` (dev server, not preview) | The dev server runs Vite's proxy (`/api` → port 9091), making API calls same-origin; this lets session cookies be set and sent automatically, which is required for `GET /api/v2/me` to authenticate without explicit credentials |
+| Relative API URLs in `.env.e2e` | Requests go through the Vite proxy (`/api/v2/` → `localhost:9091/api/v2/`) instead of cross-origin, so browser-managed cookies work |
 | Explicit service list in `docker compose up` | Avoids building debarchive (not needed in Phase 1), reducing cold-start time |
 
 ## Phase 2 roadmap
