@@ -1,5 +1,9 @@
 import { test, expect } from "@playwright/test";
 
+// This test intentionally re-exercises the login flow with a fresh context.
+// It does NOT use storageState. See e2e/integration/global-setup.ts which
+// performs the same login once to produce storageState for other tests.
+
 const email = (): string => {
   const v = process.env.CI_ADMIN_EMAIL;
   if (!v) throw new Error("CI_ADMIN_EMAIL not set");
@@ -27,5 +31,7 @@ test.describe("login (real backend)", () => {
     await page.locator('button[type="submit"]').click();
 
     await expect(page).toHaveURL(/overview/, { timeout: 30_000 });
+    // Confirm authenticated content rendered — not just a redirect to a broken page.
+    await expect(page.getByRole("main")).toBeVisible();
   });
 });
