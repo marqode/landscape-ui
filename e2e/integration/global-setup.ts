@@ -5,7 +5,7 @@ import path from "path";
 const STORAGE_STATE_PATH = "e2e/integration/.auth/state.json";
 // Must match playwright.integration.config.ts › use.baseURL; FullConfig is not
 // reliably populated when globalSetup runs ahead of webServer startup.
-const BASE_URL = "http://localhost:4173";
+const BASE_URL = "http://localhost:5173";
 const API_URL = "http://localhost:9091/api/v2/";
 const API_TIMEOUT_MS = 5_000;
 const HTTP_SERVER_ERROR_MIN = 500;

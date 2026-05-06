@@ -1,6 +1,6 @@
 import { defineConfig } from "@playwright/test";
 
-const BASE_URL = "http://localhost:4173";
+const BASE_URL = "http://localhost:5173";
 
 export default defineConfig({
   testDir: "e2e/integration",
@@ -19,7 +19,7 @@ export default defineConfig({
   // Playwright owns the preview server lifecycle.
   // Run `pnpm run build:e2e` with integration env vars before running tests.
   webServer: {
-    command: "pnpm preview",
+    command: "pnpm preview --port 5173",
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 60_000,
@@ -32,8 +32,5 @@ export default defineConfig({
     trace: "on-first-retry",
     video: "retain-on-failure",
     ignoreHTTPSErrors: true,
-    launchOptions: {
-      args: ["--disable-web-security"],
-    },
   },
 });

@@ -81,7 +81,7 @@ jobs:
               --admin_email "$CI_ADMIN_EMAIL" \
               --admin_name "CI Test Admin" \
               --admin_password "$CI_ADMIN_PASSWORD" \
-              --root_url "http://localhost:4173/"
+              --root_url "http://localhost:5173/"
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4

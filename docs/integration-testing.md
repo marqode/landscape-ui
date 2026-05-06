@@ -55,7 +55,7 @@ docker exec landscape-api \
   --admin_email "ci-admin@example.com" \
   --admin_name "CI Test Admin" \
   --admin_password "mysecret" \
-  --root_url "http://localhost:4173/"
+  --root_url "http://localhost:5173/"
 ```
 
 ### 2. Build landscape-ui for integration
