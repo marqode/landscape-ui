@@ -47,10 +47,10 @@ Wait until both `http://localhost:9091/api/v2/` and `http://localhost:8080/` res
 
 ### 1b. Seed the admin account
 
-Still from `landscape-packaging/docker/ui-dev/`. Use the same credentials as in step 0:
+Still with the same credentials as in step 0:
 
 ```bash
-docker compose exec -T api \
+docker exec landscape-api \
   uv run python bootstrap-account \
   --admin_email "ci-admin@example.com" \
   --admin_name "CI Test Admin" \
