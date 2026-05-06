@@ -58,7 +58,19 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     const page = await context.newPage();
 
     await page.goto("/login");
-    await page.locator('input[name="identifier"]').fill(email);
+
+    const form = page.locator('input[name="identifier"]');
+    const formVisible = await form.waitFor({ state: "visible", timeout: 10_000 }).then(() => true).catch(() => false);
+    if (!formVisible) {
+      await page.screenshot({ path: "e2e/integration/.auth/login-debug.png" });
+      throw new Error(
+        "Login form did not appear at /login.\n" +
+          "The password login method may not be enabled. Ensure bootstrap-account ran\n" +
+          "on a fresh database — see docs/integration-testing.md step 1.",
+      );
+    }
+
+    await form.fill(email);
     await page.locator('input[name="password"]').fill(password);
     await page.locator('button[type="submit"]').click();
     await page.waitForURL(/overview/, { timeout: 30_000 });
