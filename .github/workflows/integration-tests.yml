@@ -48,6 +48,10 @@ jobs:
         working-directory: .landscape-packaging/docker/ui-dev
         run: mkdir -p ../../landscape-server/.venv ../../landscape-server/build ../../landscape-server/var/log
 
+      - name: Vendor landscape-go dependencies
+        working-directory: .landscape-packaging/landscape-go
+        run: GOPRIVATE="github.com/canonical/*" go mod vendor
+
       - name: Start backend stack
         working-directory: .landscape-packaging/docker/ui-dev
         run: |

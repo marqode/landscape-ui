@@ -20,21 +20,16 @@ Integration tests run Playwright against a real Landscape backend stack (landsca
 ### Prerequisites
 
 - Docker + Docker Compose v2
+- Go (for `go mod vendor` — pre-installed on most dev machines; `sudo snap install go --classic` on Ubuntu)
 - Access to `canonical/landscape-packaging` cloned somewhere (e.g. `~/landscape-packaging`)
 - `pnpm` and Node 24 installed in this repo
 
 ### 1. Start the backend stack
 
-From your `landscape-packaging/docker/ui-dev/` directory:
+From your `landscape-packaging/docker/ui-dev/` directory. The `make up` target vendors landscape-go, creates bind-mount dirs, and starts the stack:
 
 ```bash
-_uid=$(id -u)
-_gid=$(id -g)
-_uname=$(whoami)
-UID=$_uid GID=$_gid UNAME=$_uname \
-  docker compose up -d \
-  postgresql rabbitmq rsyslog builder \
-  package-search api appserver fake-openid
+make up
 ```
 
 Wait until both `http://localhost:9091/api/v2/` and `http://localhost:8080/` respond.
