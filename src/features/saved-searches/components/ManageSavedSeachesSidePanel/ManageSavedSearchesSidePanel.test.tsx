@@ -1,8 +1,42 @@
 import { renderWithProviders } from "@/tests/render";
 import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import ManageSavedSearchesSidePanel from "./ManageSavedSearchesSidePanel";
+
+vi.mock("@/components/filter/SearchQueryEditor", () => {
+  return {
+    default: ({
+      label,
+      value,
+      onChange,
+      onBlur,
+      error,
+      warning,
+    }: {
+      label: string;
+      value: string | undefined;
+      onChange?: (value: string | undefined) => void;
+      onBlur?: () => void;
+      error?: string | false;
+      warning?: string | false;
+    }) => (
+      <div>
+        <label>
+          {label}
+          <textarea
+            aria-label={label}
+            value={value ?? ""}
+            onChange={(e) => onChange?.(e.target.value)}
+            onBlur={onBlur}
+          />
+        </label>
+        {error && <span>{error}</span>}
+        {warning && <span>{warning}</span>}
+      </div>
+    ),
+  };
+});
 
 describe("ManageSavedSearchesSidePanel", () => {
   it("should render add saved search button", async () => {
@@ -45,7 +79,16 @@ describe("ManageSavedSearchesSidePanel", () => {
     });
     await userEvent.click(createButton);
 
-    const backButton = await screen.findByRole("button", { name: /back/i });
+    await screen.findByRole(
+      "heading",
+      { name: "Add saved search" },
+      { timeout: 5000 },
+    );
+    const backButton = await screen.findByRole(
+      "button",
+      { name: /back/i },
+      { timeout: 5000 },
+    );
     await userEvent.click(backButton);
 
     expect(
