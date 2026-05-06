@@ -40,15 +40,9 @@ Wait until both `http://localhost:9091/api/v2/` and `http://localhost:8080/` res
 
 ### 2. Build landscape-ui for integration
 
-From this repo's root:
+From this repo's root. The integration vars are pre-configured in `.env.e2e`, which Vite loads automatically for this build mode:
 
 ```bash
-VITE_API_URL=http://localhost:9091/api/v2/ \
-VITE_API_URL_OLD=http://localhost:9091/api/ \
-VITE_API_URL_DEB_ARCHIVE=http://localhost:8000/v1beta1/ \
-VITE_ROOT_PATH=/ \
-VITE_SELF_HOSTED_ENV=true \
-VITE_MSW_ENABLED=false \
 pnpm run build:e2e
 ```
 

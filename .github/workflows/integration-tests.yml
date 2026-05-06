@@ -92,13 +92,6 @@ jobs:
 
       - name: Build landscape-ui for integration
         run: pnpm run build:e2e
-        env:
-          VITE_API_URL: "http://localhost:9091/api/v2/"
-          VITE_API_URL_OLD: "http://localhost:9091/api/"
-          VITE_API_URL_DEB_ARCHIVE: "http://localhost:8000/v1beta1/"
-          VITE_ROOT_PATH: "/"
-          VITE_SELF_HOSTED_ENV: "true"
-          VITE_MSW_ENABLED: "false"
 
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
