@@ -7,11 +7,10 @@ test.describe("instances list (real backend)", () => {
   test("renders sample computers from the real API", async ({ page }) => {
     await page.goto("/instances");
 
-    // Wait for the page to be done loading (no spinner)
     await expect(page.getByRole("main")).toBeVisible();
-    await expect(page.getByRole("main")).not.toContainText("Loading", {
-      timeout: 15_000,
-    });
+
+    // Wait for the table to mount (LoadingState replaced by InstanceList)
+    await expect(page.getByRole("table")).toBeVisible({ timeout: 15_000 });
 
     // sample.py seeds at least one computer — assert a table row is visible.
     // The first <tr> after the header row contains a computer entry.
