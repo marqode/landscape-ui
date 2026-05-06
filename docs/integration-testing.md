@@ -44,16 +44,14 @@ export CI_ADMIN_PASSWORD=mysecret   # change if you prefer
 ```
 
 ```bash
-# Create admin account
 docker compose exec -T api \
-  uv run bootstrap-account \
+  uv run python bootstrap-account \
   --admin_email "$CI_ADMIN_EMAIL" \
   --admin_name "CI Test Admin" \
   --admin_password "$CI_ADMIN_PASSWORD" \
   --root_url "http://localhost:4173/"
 
-# Seed sample computers and activities
-docker compose exec -T api uv run sample
+docker compose exec -T api uv run schema --with-computers
 ```
 
 ### 3. Build landscape-ui for integration
