@@ -100,13 +100,17 @@ The integration Playwright project sets `baseURL: http://localhost:5173` and the
 The dev server env uses:
 
 ```
-VITE_API_URL=http://localhost:9091/api/v2/
-VITE_API_URL_OLD=http://localhost:9091/api/
-VITE_API_URL_DEB_ARCHIVE=http://localhost:8000/
+VITE_API_URL=/api/v2/
+VITE_API_URL_OLD=/api/
+VITE_API_URL_DEB_ARCHIVE=/v1beta1/
+VITE_API_PROXY_TARGET=http://localhost:9091
+VITE_API_DEBARCHIVE_PROXY_TARGET=http://localhost:8000
 VITE_ROOT_PATH=/
 VITE_SELF_HOSTED_ENV=true
 VITE_MSW_ENABLED=false
 ```
+
+The relative paths (`/api/v2/`, `/v1beta1/`) are same-origin requests that Vite proxies to the respective backend targets. `VITE_API_URL_DEB_ARCHIVE` and `VITE_API_DEBARCHIVE_PROXY_TARGET` are included for completeness; debarchive is not part of the Phase 1 stack but the env is correct for Phase 2 when it is.
 
 ---
 
