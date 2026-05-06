@@ -9,6 +9,13 @@ const BASE_URL = "http://localhost:4173";
 const API_URL = "http://localhost:9091/api/v2/";
 const API_TIMEOUT_MS = 5_000;
 const HTTP_SERVER_ERROR_MIN = 500;
+const ENV_FILE = ".env.integration.local";
+
+// Load local credentials file if present (gitignored). Values already in
+// process.env (e.g. from CI) take precedence because override is false.
+if (fs.existsSync(ENV_FILE)) {
+  process.loadEnvFile(ENV_FILE);
+}
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
   const email = process.env.CI_ADMIN_EMAIL;
@@ -18,9 +25,9 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     throw new Error(
       [
         "Integration tests require CI_ADMIN_EMAIL and CI_ADMIN_PASSWORD.",
-        "In CI these are set by the workflow. Locally, export them before running:",
-        "  export CI_ADMIN_EMAIL=ci-admin@example.com",
-        "  export CI_ADMIN_PASSWORD=<your-password>",
+        `Locally, create ${ENV_FILE} with:`,
+        "  CI_ADMIN_EMAIL=ci-admin@example.com",
+        "  CI_ADMIN_PASSWORD=<your-password>",
       ].join("\n"),
     );
   }

@@ -24,13 +24,24 @@ Integration tests run Playwright against a real Landscape backend stack (landsca
 - Access to `canonical/landscape-packaging` cloned somewhere (e.g. `~/landscape-packaging`)
 - `pnpm` and Node 24 installed in this repo
 
+### 0. Create your local credentials file (one-time)
+
+Create `.env.integration.local` in this repo's root (gitignored):
+
+```ini
+CI_ADMIN_EMAIL=ci-admin@example.com
+CI_ADMIN_PASSWORD=mysecret
+```
+
+These must match the credentials you pass to `make up` in the next step.
+
 ### 1. Start the backend stack
 
-From your `landscape-packaging/docker/ui-dev/` directory. Set credentials first, then `make up` — `LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS` tells the schema script to create the admin account and seed computer data at startup:
+From your `landscape-packaging/docker/ui-dev/` directory. `LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS` tells the schema script to create the admin account and seed computer data at startup:
 
 ```bash
-export CI_ADMIN_EMAIL=ci-admin@example.com
-export CI_ADMIN_PASSWORD=mysecret
+CI_ADMIN_EMAIL=ci-admin@example.com
+CI_ADMIN_PASSWORD=mysecret
 
 LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS="--with-computers --admin-email $CI_ADMIN_EMAIL --admin-name 'CI Test Admin' --admin-password $CI_ADMIN_PASSWORD" \
   make up
@@ -55,10 +66,10 @@ pnpm exec playwright install chromium
 ### 3. Run integration tests
 
 ```bash
-CI_ADMIN_EMAIL="$CI_ADMIN_EMAIL" \
-CI_ADMIN_PASSWORD="$CI_ADMIN_PASSWORD" \
 pnpm exec playwright test --config playwright.integration.config.ts
 ```
+
+Credentials are loaded automatically from `.env.integration.local`.
 
 The HTML report is written to `playwright-integration-report/`.
 
