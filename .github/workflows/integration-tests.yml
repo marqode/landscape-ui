@@ -4,11 +4,11 @@ on:
   workflow_dispatch:
     inputs:
       server_ref:
-        description: "landscape-server ref (default: main)"
+        description: "landscape-server ref (reserved for future use — submodule is currently pinned by landscape-packaging)"
         default: "main"
         required: false
       go_ref:
-        description: "landscape-go ref (default: main)"
+        description: "landscape-go ref (reserved for future use — submodule is currently pinned by landscape-packaging)"
         default: "main"
         required: false
 
@@ -19,6 +19,8 @@ jobs:
     # runs-on: [self-hosted, Linux, large]
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    permissions:
+      contents: read
 
     env:
       LANDSCAPE_DEPLOYMENT_MODE: standalone
@@ -37,7 +39,10 @@ jobs:
           path: .landscape-packaging
 
       - name: Generate ephemeral CI password
-        run: echo "CI_ADMIN_PASSWORD=$(openssl rand -hex 16)" >> "$GITHUB_ENV"
+        run: |
+          _pass=$(openssl rand -hex 16)
+          echo "::add-mask::$_pass"
+          echo "CI_ADMIN_PASSWORD=$_pass" >> "$GITHUB_ENV"
 
       - name: Create landscape-server bind-mount directories
         working-directory: .landscape-packaging/docker/ui-dev
@@ -45,21 +50,23 @@ jobs:
 
       - name: Start backend stack
         working-directory: .landscape-packaging/docker/ui-dev
-        env:
-          UID: ${{ env.UID }}
-          GID: ${{ env.GID }}
         run: |
-          export UID=$(id -u) GID=$(id -g) UNAME=$(whoami)
-          docker compose \
-            -p "ls-integration-${{ github.run_id }}" \
-            up -d \
-            postgresql rabbitmq rsyslog builder \
-            package-search api appserver fake-openid
+          _uid=$(id -u)
+          _gid=$(id -g)
+          _uname=$(whoami)
+          UID=$_uid GID=$_gid UNAME=$_uname \
+            docker compose \
+              -p "ls-integration-${{ github.run_id }}" \
+              up -d \
+              postgresql rabbitmq rsyslog builder \
+              package-search api appserver fake-openid
 
       - name: Wait for API and appserver to be ready
         run: |
           timeout 180 bash -c \
-            'until curl -sf http://localhost:9091/ && curl -sf http://localhost:8080/; do sleep 5; done'
+            'until curl -sf --max-time 5 http://localhost:9091/api/v2/ && \
+                   curl -sf --max-time 5 http://localhost:8080/; \
+             do sleep 5; done'
 
       - name: Seed admin account
         working-directory: .landscape-packaging/docker/ui-dev
