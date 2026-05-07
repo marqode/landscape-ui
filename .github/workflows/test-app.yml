@@ -1,0 +1,26 @@
+name: Test GitHub App Access
+on: workflow_dispatch # Allows you to run this manually
+
+jobs:
+  test-access:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Token
+        id: get_token
+        uses: actions/create-github-app-token@v1
+        with:
+          # Replace these with the actual names of your Secret and Variable
+          app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
+          private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
+
+      - name: Verify Token Permissions
+        run: |
+          # This checks what repositories the token can actually "see"
+          curl -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
+               -H "Accept: application/vnd.github+json" \
+               https://api.github.com/installation/repositories
+
+      - name: Attempt Clone
+        run: |
+          # Try to clone the backend repo that has the submodules
+          git clone https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/org-name/backend-repo.git
