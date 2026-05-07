@@ -104,31 +104,33 @@ jobs:
       # initial_sync is a Docker Desktop-only extension not in the open-source schema.
       # The landscape-ui service is not started in CI so removing it has no effect.
       #
-      # debarchive: two CI incompatibilities fixed via Python patch:
-      # 1. The upstream command runs via `air` + `dlv` (Delve debugger), which
-      #    requires ptrace — a capability restricted in GitHub Actions containers.
-      #    Replace with a direct go build + exec so the binary runs without dlv.
-      # 2. The healthcheck probed gRPC port 8001; patch to probe HTTP port 8000.
+      # debarchive has two CI incompatibilities addressed via a compose override file
+      # (compose.ci-override.yaml) rather than brittle string patching of compose.yaml:
+      # 1. The upstream command runs via `air` + `dlv` (Delve debugger), which requires
+      #    ptrace — restricted in GitHub Actions containers. Override to build + exec directly.
+      # 2. The upstream healthcheck probes gRPC port 8001; override to probe HTTP port 8000
+      #    with a longer start_period to accommodate Go compilation time (~2 min cold).
       - name: Patch compose.yaml for CI compatibility
         run: |
           sed -i '/initial_sync:/d' .landscape-packaging/docker/ui-dev/compose.yaml
-          python3 - << 'PYEOF'
-          content = open('.landscape-packaging/docker/ui-dev/compose.yaml').read()
 
-          # Replace air/dlv command with a direct build + run (no debugger needed in CI)
-          content = content.replace(
-              '      - |\n        exec air -c /app/debarchive/.air.toml\n',
-              '      - |\n        cd /app/debarchive && go build -o /tmp/debarchive-main ./cmd/main.go && exec /tmp/debarchive-main\n',
-          )
-
-          # Fix healthcheck: use HTTP gateway port 8000, extend grace period
-          content = content.replace(
-              '      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8001/"]\n      interval: 10s\n      timeout: 5s\n      retries: 12\n      start_period: 60s',
-              '      test: ["CMD-SHELL", "curl -sf --max-time 5 http://localhost:8000/ || exit 1"]\n      interval: 15s\n      timeout: 10s\n      retries: 20\n      start_period: 3m',
-          )
-
-          open('.landscape-packaging/docker/ui-dev/compose.yaml', 'w').write(content)
-          PYEOF
+          # Write a compose override that fixes debarchive for CI without touching compose.yaml.
+          # Docker Compose merges override files with the base, replacing matching keys.
+          cat > .landscape-packaging/docker/ui-dev/compose.ci-override.yaml << 'EOF'
+          services:
+            debarchive:
+              command:
+                - bash
+                - -c
+                - |
+                  cd /app/debarchive && go build -o /tmp/debarchive-main ./cmd/main.go && exec /tmp/debarchive-main
+              healthcheck:
+                test: ["CMD-SHELL", "curl -sf --max-time 5 http://localhost:8000/ || exit 1"]
+                interval: 15s
+                timeout: 10s
+                retries: 20
+                start_period: 3m
+          EOF
 
       # Two-phase startup: bring up postgresql first so we can create the debarchive
       # database before debarchive itself starts (debarchive does not create the DB).
@@ -141,6 +143,7 @@ jobs:
           env UID="$_uid" GID="$_gid" UNAME="$_uname" \
             docker compose \
               -p "ls-integration-${{ github.run_id }}" \
+              -f compose.yaml -f compose.ci-override.yaml \
               up -d \
               postgresql rabbitmq rsyslog
 
@@ -161,6 +164,7 @@ jobs:
           env UID="$_uid" GID="$_gid" UNAME="$_uname" \
             docker compose \
               -p "ls-integration-${{ github.run_id }}" \
+              -f compose.yaml -f compose.ci-override.yaml \
               up -d \
               postgresql rabbitmq rsyslog builder \
               package-search api appserver fake-openid \
@@ -215,10 +219,12 @@ jobs:
              do sleep 5; done' || {
             echo "=== Timed out. Container states ==="
             docker compose -p "ls-integration-${{ github.run_id }}" \
-              -f .landscape-packaging/docker/ui-dev/compose.yaml ps
+              -f .landscape-packaging/docker/ui-dev/compose.yaml \
+              -f .landscape-packaging/docker/ui-dev/compose.ci-override.yaml ps
             echo "=== API logs (last 50 lines) ==="
             docker compose -p "ls-integration-${{ github.run_id }}" \
               -f .landscape-packaging/docker/ui-dev/compose.yaml \
+              -f .landscape-packaging/docker/ui-dev/compose.ci-override.yaml \
               logs --tail=50 api
             exit 1
           }
@@ -269,4 +275,5 @@ jobs:
           docker compose \
             -p "ls-integration-${{ github.run_id }}" \
             -f .landscape-packaging/docker/ui-dev/compose.yaml \
+            -f .landscape-packaging/docker/ui-dev/compose.ci-override.yaml \
             down --remove-orphans --volumes
