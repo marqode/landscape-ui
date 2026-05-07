@@ -84,22 +84,40 @@ jobs:
               postgresql rabbitmq rsyslog builder \
               package-search api appserver fake-openid
 
-      - name: Wait for API and appserver to be ready
-        working-directory: .landscape-packaging/docker/ui-dev
+      - name: Wait for builder to finish schema migrations
+        # The builder runs schema patches and then exits. The api container may
+        # report healthy before the DB schema is ready, so we wait for the
+        # builder to exit cleanly before probing HTTP endpoints.
         run: |
-          timeout 600 bash -c \
-            'until curl -sf --max-time 5 http://localhost:9091/api/v2/ && \
+          docker compose \
+            -p "ls-integration-${{ github.run_id }}" \
+            -f .landscape-packaging/docker/ui-dev/compose.yaml \
+            wait builder
+          EXIT=$(docker inspect --format='{{.State.ExitCode}}' landscape-builder 2>/dev/null || echo "0")
+          if [ "$EXIT" != "0" ]; then
+            echo "Builder failed with exit code $EXIT"
+            docker compose -p "ls-integration-${{ github.run_id }}" \
+              -f .landscape-packaging/docker/ui-dev/compose.yaml \
+              logs --tail=100 builder
+            exit 1
+          fi
+
+      - name: Wait for API and appserver to be ready
+        run: |
+          # /api/v2/ root may 404; check login/methods which the app actually uses.
+          # The builder wait above handles the long schema migration window, so
+          # 120 s is sufficient here.
+          timeout 120 bash -c \
+            'until curl -sf --max-time 5 http://localhost:9091/api/v2/login/methods && \
                    curl -sf --max-time 5 http://localhost:8080/; \
-             do
-               echo "Waiting... $(docker compose -p "ls-integration-${{ github.run_id }}" ps --format json | grep -o '"'"'\"State\":\"[^\"]*\"'"'"' | sort | uniq -c)"
-               sleep 10
-             done' || {
+             do sleep 5; done' || {
             echo "=== Timed out. Container states ==="
-            docker compose -p "ls-integration-${{ github.run_id }}" ps
+            docker compose -p "ls-integration-${{ github.run_id }}" \
+              -f .landscape-packaging/docker/ui-dev/compose.yaml ps
             echo "=== API logs (last 50 lines) ==="
-            docker compose -p "ls-integration-${{ github.run_id }}" logs --tail=50 api
-            echo "=== Builder logs (last 50 lines) ==="
-            docker compose -p "ls-integration-${{ github.run_id }}" logs --tail=50 builder
+            docker compose -p "ls-integration-${{ github.run_id }}" \
+              -f .landscape-packaging/docker/ui-dev/compose.yaml \
+              logs --tail=50 api
             exit 1
           }
 
