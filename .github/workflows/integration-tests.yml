@@ -85,11 +85,23 @@ jobs:
               package-search api appserver fake-openid
 
       - name: Wait for API and appserver to be ready
+        working-directory: .landscape-packaging/docker/ui-dev
         run: |
-          timeout 180 bash -c \
+          timeout 600 bash -c \
             'until curl -sf --max-time 5 http://localhost:9091/api/v2/ && \
                    curl -sf --max-time 5 http://localhost:8080/; \
-             do sleep 5; done'
+             do
+               echo "Waiting... $(docker compose -p "ls-integration-${{ github.run_id }}" ps --format json | grep -o '"'"'\"State\":\"[^\"]*\"'"'"' | sort | uniq -c)"
+               sleep 10
+             done' || {
+            echo "=== Timed out. Container states ==="
+            docker compose -p "ls-integration-${{ github.run_id }}" ps
+            echo "=== API logs (last 50 lines) ==="
+            docker compose -p "ls-integration-${{ github.run_id }}" logs --tail=50 api
+            echo "=== Builder logs (last 50 lines) ==="
+            docker compose -p "ls-integration-${{ github.run_id }}" logs --tail=50 builder
+            exit 1
+          }
 
       - name: Seed admin account
         working-directory: .landscape-packaging/docker/ui-dev
