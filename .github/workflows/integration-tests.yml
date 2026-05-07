@@ -56,6 +56,14 @@ jobs:
         working-directory: .landscape-packaging/landscape-go
         run: GOPRIVATE="github.com/canonical/*" go mod vendor
 
+      - name: Install Docker Compose v2.36+ (initial_sync support)
+        run: |
+          COMPOSE_VERSION="v2.36.0"
+          curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o /usr/local/lib/docker/cli-plugins/docker-compose
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          docker compose version
+
       - name: Start backend stack
         working-directory: .landscape-packaging/docker/ui-dev
         run: |
