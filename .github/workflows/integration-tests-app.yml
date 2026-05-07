@@ -125,12 +125,14 @@ jobs:
                 - |
                   cd /app/debarchive && go build -o /tmp/debarchive-main ./cmd/main.go && exec /tmp/debarchive-main
               healthcheck:
-                test: ["CMD-SHELL", "curl -sf --max-time 5 http://localhost:8000/ || exit 1"]
+                test: ["CMD-SHELL", "curl -s -o /dev/null --max-time 5 http://localhost:8000/ || exit 1"]
                 interval: 15s
                 timeout: 10s
                 retries: 20
                 start_period: 3m
           EOF
+          echo "=== compose.ci-override.yaml ==="
+          cat .landscape-packaging/docker/ui-dev/compose.ci-override.yaml
 
       # Two-phase startup: bring up postgresql first so we can create the debarchive
       # database before debarchive itself starts (debarchive does not create the DB).
@@ -168,7 +170,7 @@ jobs:
               up -d \
               postgresql rabbitmq rsyslog builder \
               package-search api appserver fake-openid \
-              debarchive debarchive-seeder
+              debarchive
 
       # The builder runs schema patches then exits. The api container passes its
       # Docker healthcheck before the DB schema is ready, so wait for the builder
@@ -189,16 +191,36 @@ jobs:
           echo "Builder finished successfully"
 
       # debarchive health endpoint is now on port 8000 (HTTP gateway, patched above).
-      # The seeder exits after seeding; wait for it like the builder.
+      # The seeder is started here (not in the main up step) so that docker compose
+      # doesn't block on the debarchive health dependency chain during startup.
       - name: Wait for debarchive to be ready and seeded
+        working-directory: .landscape-packaging/docker/ui-dev
         run: |
-          echo "Waiting for debarchive healthcheck (Go compilation may take ~2 min)..."
+          echo "Waiting for debarchive to respond (Go compilation may take ~2 min)..."
           timeout 300 bash -c \
-            'until curl -sf --max-time 5 http://localhost:8000/; do sleep 10; done' || {
+            'until curl -s -o /dev/null --max-time 5 http://localhost:8000/; do
+               echo "$(date): debarchive not ready yet, retrying in 10s..."
+               docker inspect --format="status={{.State.Status}} health={{.State.Health.Status}}" landscape-debarchive 2>/dev/null || true
+               sleep 10
+             done' || {
             echo "=== Debarchive failed to become healthy ==="
-            docker logs landscape-debarchive --tail=50
+            echo "--- Container state ---"
+            docker inspect landscape-debarchive --format='{{json .State}}' 2>/dev/null | python3 -m json.tool || true
+            echo "--- Last 100 log lines ---"
+            docker logs landscape-debarchive --tail=100
             exit 1
           }
+          echo "Debarchive is healthy. Starting seeder..."
+
+          _uid=$(id -u)
+          _gid=$(id -g)
+          _uname=$(whoami)
+          env UID="$_uid" GID="$_gid" UNAME="$_uname" \
+            docker compose \
+              -p "ls-integration-${{ github.run_id }}" \
+              -f compose.yaml -f compose.ci-override.yaml \
+              up -d debarchive-seeder
+
           echo "Waiting for debarchive-seeder to finish..."
           until docker inspect landscape-debarchive-seeder &>/dev/null; do sleep 2; done
           EXIT=$(docker wait landscape-debarchive-seeder)
