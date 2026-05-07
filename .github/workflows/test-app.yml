@@ -13,14 +13,18 @@ jobs:
           app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
           private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
           owner: canonical
-          repositories: landscape-packaging, landscape-go, landscape-server
+          repositories: "landscape-packaging, landscape-go, landscape-server, landscape-ui"
 
-      - name: Clone Parent and Submodules
+      - name: Clone with Submodule Rewrite
         run: |
-          # 1. Use the / slash instead of : 
-          # 2. Add --recurse-submodules to pull the backend servers
-          git clone --recurse-submodules \
-            https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/canonical/landscape-packaging.git
+          # 1. Force Git to use the token for SSH-style URLs
+          git config --global url."https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
+
+          # 2. Force Git to use the token for standard HTTPS URLs (just in case)
+          git config --global url."https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+
+          # 3. Now run the clone. It will use the rewrite rules for all submodules.
+          git clone --recurse-submodules https://github.com/canonical/landscape-packaging.git
 
       # - name: Verify Token Permissions
       #   run: |
