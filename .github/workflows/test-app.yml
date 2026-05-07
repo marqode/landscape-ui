@@ -25,4 +25,4 @@ jobs:
       - name: Attempt Clone
         run: |
           # Try to clone the backend repo that has the submodules
-          git clone https://x-access-token:${{ steps.get_token.outputs.token }}@github.com:canonical/landscape-packaging.git
+          git clone https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/canonical/landscape-packaging.git
