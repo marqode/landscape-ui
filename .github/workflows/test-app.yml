@@ -12,6 +12,8 @@ jobs:
           # Replace these with the actual names of your Secret and Variable
           app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
           private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
+          owner: canonical
+          repositories: landscape-packaging
 
       - name: Verify Token Permissions
         run: |
