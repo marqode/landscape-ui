@@ -45,7 +45,7 @@ jobs:
           app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
           private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
           owner: canonical
-          repositories: "landscape-packaging,landscape-go,landscape-server,landscape-proto"
+          repositories: "landscape-packaging,landscape-go,landscape-server"
 
       # Checks out top-level only — submodule auth is handled below via url.insteadOf.
       # actions/checkout only injects HTTPS credentials; landscape-packaging submodules
@@ -61,21 +61,15 @@ jobs:
           path: .landscape-packaging
 
       # Must run AFTER all actions/checkout steps (checkout resets git config)
-      # and BEFORE submodule init and go mod vendor.
-      # Two insteadOf rules on the same target URL:
-      #   git@github.com: → covers SSH submodule URLs
-      #   https://github.com/ → covers Go module HTTPS fetches
-      # Token via env: to avoid interpolating it into the shell command string.
-      - name: Rewrite GitHub URLs to authenticated HTTPS
+      # and BEFORE submodule init. Token via env: to avoid interpolating it
+      # into the shell command string.
+      - name: Rewrite SSH submodule URLs to authenticated HTTPS
         env:
           TOKEN: ${{ steps.get_token.outputs.token }}
         run: |
           git config --global \
             url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
             "git@github.com:"
-          git config --global --add \
-            url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
-            "https://github.com/"
 
       - name: Initialise landscape-packaging submodules
         working-directory: .landscape-packaging
@@ -93,10 +87,6 @@ jobs:
             .landscape-packaging/landscape-server/.venv \
             .landscape-packaging/landscape-server/build \
             .landscape-packaging/landscape-server/var/log
-
-      - name: Vendor landscape-go dependencies
-        working-directory: .landscape-packaging/landscape-go
-        run: GOPRIVATE="github.com/canonical/*" go mod vendor
 
       # Ensures docker compose wait and full schema validation are available.
       # Installs to ~/.docker/cli-plugins to avoid permission issues on the runner.
