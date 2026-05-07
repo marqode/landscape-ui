@@ -15,16 +15,25 @@ jobs:
           owner: canonical
           repositories: "landscape-packaging, landscape-go, landscape-server, landscape-ui"
 
-      - name: Clone with Submodule Rewrite
+      - name: Force Git to use HTTPS for Submodules
         run: |
-          # 1. Force Git to use the token for SSH-style URLs
+          # This rewrite must happen before the checkout step
           git config --global url."https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/".insteadOf "git@github.com:"
 
-          # 2. Force Git to use the token for standard HTTPS URLs (just in case)
-          git config --global url."https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/".insteadOf "https://github.com/"
+          # Diagnostic: Check if the token is actually there (it will mask the secret, but should show '***')
+          echo "Token length check: ${#TOKEN}"
+        env:
+          TOKEN: ${{ steps.get_token.outputs.token }}
 
-          # 3. Now run the clone. It will use the rewrite rules for all submodules.
-          git clone --recurse-submodules https://github.com/canonical/landscape-packaging.git
+      - name: Checkout Packaging Repo
+        uses: actions/checkout@v4
+        with:
+          repository: canonical/landscape-packaging
+          token: ${{ steps.get_token.outputs.token }}
+          # This tells the action to handle the submodules for you
+          submodules: "recursive"
+          # Specify where you want it to land
+          path: landscape-packaging
 
       # - name: Verify Token Permissions
       #   run: |
