@@ -85,22 +85,19 @@ jobs:
               package-search api appserver fake-openid
 
       - name: Wait for builder to finish schema migrations
-        # The builder runs schema patches and then exits. The api container may
-        # report healthy before the DB schema is ready, so we wait for the
-        # builder to exit cleanly before probing HTTP endpoints.
+        # Uses docker wait (not docker compose wait) to avoid project-lookup
+        # issues when the working directory differs from the up step.
         run: |
-          docker compose \
-            -p "ls-integration-${{ github.run_id }}" \
-            -f .landscape-packaging/docker/ui-dev/compose.yaml \
-            wait builder
-          EXIT=$(docker inspect --format='{{.State.ExitCode}}' landscape-builder 2>/dev/null || echo "0")
+          echo "Waiting for builder container to appear..."
+          until docker inspect landscape-builder &>/dev/null; do sleep 2; done
+          echo "Waiting for builder to finish schema migrations..."
+          EXIT=$(docker wait landscape-builder)
           if [ "$EXIT" != "0" ]; then
             echo "Builder failed with exit code $EXIT"
-            docker compose -p "ls-integration-${{ github.run_id }}" \
-              -f .landscape-packaging/docker/ui-dev/compose.yaml \
-              logs --tail=100 builder
+            docker logs landscape-builder --tail=100
             exit 1
           fi
+          echo "Builder finished successfully"
 
       - name: Wait for API and appserver to be ready
         run: |
