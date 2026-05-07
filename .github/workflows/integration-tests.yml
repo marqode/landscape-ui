@@ -65,6 +65,12 @@ jobs:
           chmod +x ~/.docker/cli-plugins/docker-compose
           docker compose version
 
+      - name: Patch compose.yaml for CI compatibility
+        # initial_sync is a Docker Desktop-only compose extension not yet in the
+        # open-source schema. We don't start the landscape-ui service so removing
+        # the line has no effect on the test stack.
+        run: sed -i '/initial_sync:/d' .landscape-packaging/docker/ui-dev/compose.yaml
+
       - name: Start backend stack
         working-directory: .landscape-packaging/docker/ui-dev
         run: |
