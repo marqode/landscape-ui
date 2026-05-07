@@ -45,7 +45,7 @@ jobs:
           app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
           private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
           owner: canonical
-          repositories: "landscape-packaging,landscape-go,landscape-server"
+          repositories: "landscape-packaging,landscape-go,landscape-server,landscape-proto"
 
       # Checks out top-level only — submodule auth is handled below via url.insteadOf.
       # actions/checkout only injects HTTPS credentials; landscape-packaging submodules
