@@ -30,23 +30,11 @@ jobs:
       - name: Checkout landscape-ui
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
-      # LANDSCAPE_PACKAGER_PRIVATE_KEY is an SSH private key (PEM), not a PAT.
-      # actions/checkout `token:` only accepts a PAT or GitHub App token — passing
-      # a PEM key there produces "invalid header value" and the checkout never
-      # completes. The correct approach is to load the key into ssh-agent first
-      # (via webfactory/ssh-agent) so that every subsequent `git` command — including
-      # the recursive submodule clone performed by actions/checkout — authenticates
-      # over SSH automatically. No `token:` is needed at all.
-      - name: Load SSH deploy key for landscape-packaging
-        uses: webfactory/ssh-agent@a6f90b1f127823b31d4d4a8d96047790581349bd # v0.9.1
-        with:
-          ssh-private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
-
       - name: Checkout landscape-packaging (with submodules)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
           repository: canonical/landscape-packaging
-          ssh-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
+          token: ${{ secrets.LANDSCAPE_PACKAGER_TOKEN }}
           submodules: recursive
           path: .landscape-packaging
 

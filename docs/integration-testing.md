@@ -13,7 +13,7 @@ Integration tests run Playwright against a real Landscape backend stack (landsca
 2. Click **Run workflow** (this is a `workflow_dispatch`-triggered workflow).
 3. The workflow accepts `server_ref` / `go_ref` inputs, but they are **reserved for future use** — the backend is currently pinned to `main` via the `landscape-packaging` submodule.
 
-**Required secret:** `LANDSCAPE_PACKAGER_PRIVATE_KEY` — a PAT with `repo` scope on `canonical/landscape-packaging` (and its submodules `canonical/landscape-server`, `canonical/landscape-go`). Set this in **Settings → Secrets and variables → Actions**.
+**Required secret:** `LANDSCAPE_PACKAGER_TOKEN` — a fine-grained PAT (or classic PAT with `repo` scope) with **Contents: Read** access on `canonical/landscape-packaging`, `canonical/landscape-server`, and `canonical/landscape-go`. Set this in **Settings → Secrets and variables → Actions**.
 
 ## How to run locally
 
