@@ -104,21 +104,53 @@ jobs:
       # initial_sync is a Docker Desktop-only extension not in the open-source schema.
       # The landscape-ui service is not started in CI so removing it has no effect.
       #
-      # debarchive healthcheck: the upstream compose.yaml probes gRPC port 8001, but
-      # curl does not speak HTTP/2 so the check never passes. Fix it to probe the HTTP
-      # gateway on port 8000 instead. Also add start_period=3m because `air` compiles
-      # the Go binary on startup and the binary won't be listening for ~1-2 minutes.
+      # debarchive: two CI incompatibilities fixed via Python patch:
+      # 1. The upstream command runs via `air` + `dlv` (Delve debugger), which
+      #    requires ptrace — a capability restricted in GitHub Actions containers.
+      #    Replace with a direct go build + exec so the binary runs without dlv.
+      # 2. The healthcheck probed gRPC port 8001; patch to probe HTTP port 8000.
       - name: Patch compose.yaml for CI compatibility
         run: |
           sed -i '/initial_sync:/d' .landscape-packaging/docker/ui-dev/compose.yaml
           python3 - << 'PYEOF'
           content = open('.landscape-packaging/docker/ui-dev/compose.yaml').read()
+
+          # Replace air/dlv command with a direct build + run (no debugger needed in CI)
+          content = content.replace(
+              '      - |\n        exec air -c /app/debarchive/.air.toml\n',
+              '      - |\n        cd /app/debarchive && go build -o /tmp/debarchive-main ./cmd/main.go && exec /tmp/debarchive-main\n',
+          )
+
+          # Fix healthcheck: use HTTP gateway port 8000, extend grace period
           content = content.replace(
               '      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8001/"]\n      interval: 10s\n      timeout: 5s\n      retries: 12\n      start_period: 60s',
               '      test: ["CMD-SHELL", "curl -sf --max-time 5 http://localhost:8000/ || exit 1"]\n      interval: 15s\n      timeout: 10s\n      retries: 20\n      start_period: 3m',
           )
+
           open('.landscape-packaging/docker/ui-dev/compose.yaml', 'w').write(content)
           PYEOF
+
+      # Two-phase startup: bring up postgresql first so we can create the debarchive
+      # database before debarchive itself starts (debarchive does not create the DB).
+      - name: Start database services
+        working-directory: .landscape-packaging/docker/ui-dev
+        run: |
+          _uid=$(id -u)
+          _gid=$(id -g)
+          _uname=$(whoami)
+          env UID="$_uid" GID="$_gid" UNAME="$_uname" \
+            docker compose \
+              -p "ls-integration-${{ github.run_id }}" \
+              up -d \
+              postgresql rabbitmq rsyslog
+
+      - name: Create debarchive database
+        run: |
+          echo "Waiting for PostgreSQL to be ready..."
+          timeout 60 bash -c \
+            'until docker exec landscape-postgres pg_isready -U postgres -q; do sleep 2; done'
+          docker exec landscape-postgres createdb -U postgres landscape-debarchive || true
+          echo "landscape-debarchive database ready"
 
       - name: Start backend stack
         working-directory: .landscape-packaging/docker/ui-dev
