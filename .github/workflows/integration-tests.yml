@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: canonical/landscape-packaging
-          token: ${{ secrets.LANDSCAPE_PACKAGING_TOKEN }}
+          token: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
           submodules: recursive
           path: .landscape-packaging
 
