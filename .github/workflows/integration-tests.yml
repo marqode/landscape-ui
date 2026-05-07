@@ -48,6 +48,10 @@ jobs:
         working-directory: .landscape-packaging/docker/ui-dev
         run: mkdir -p ../../landscape-server/.venv ../../landscape-server/build ../../landscape-server/var/log
 
+      - name: Configure git credentials for private Go modules
+        run: |
+          git config --global url."https://x-access-token:${{ secrets.LANDSCAPE_PACKAGER_TOKEN }}@github.com/".insteadOf "https://github.com/"
+
       - name: Vendor landscape-go dependencies
         working-directory: .landscape-packaging/landscape-go
         run: GOPRIVATE="github.com/canonical/*" go mod vendor
