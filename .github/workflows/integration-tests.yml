@@ -62,7 +62,7 @@ jobs:
           _uid=$(id -u)
           _gid=$(id -g)
           _uname=$(whoami)
-          UID=$_uid GID=$_gid UNAME=$_uname \
+          env UID="$_uid" GID="$_gid" UNAME="$_uname" \
             docker compose \
               -p "ls-integration-${{ github.run_id }}" \
               up -d \
