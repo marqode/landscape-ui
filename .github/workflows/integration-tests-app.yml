@@ -114,8 +114,8 @@ jobs:
           python3 - << 'PYEOF'
           content = open('.landscape-packaging/docker/ui-dev/compose.yaml').read()
           content = content.replace(
-              '      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8001/"]\n      interval: 10s\n      timeout: 5s',
-              '      test: ["CMD-SHELL", "curl -sf --max-time 5 http://localhost:8000/ || exit 1"]\n      interval: 15s\n      timeout: 10s\n      start_period: 3m\n      retries: 20',
+              '      test: ["CMD-SHELL", "curl -s -o /dev/null http://localhost:8001/"]\n      interval: 10s\n      timeout: 5s\n      retries: 12\n      start_period: 60s',
+              '      test: ["CMD-SHELL", "curl -sf --max-time 5 http://localhost:8000/ || exit 1"]\n      interval: 15s\n      timeout: 10s\n      retries: 20\n      start_period: 3m',
           )
           open('.landscape-packaging/docker/ui-dev/compose.yaml', 'w').write(content)
           PYEOF
