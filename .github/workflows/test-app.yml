@@ -13,16 +13,23 @@ jobs:
           app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
           private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
           owner: canonical
-          repositories: landscape-packaging
+          repositories: landscape-packaging, landscape-go, landscape-server
 
-      - name: Verify Token Permissions
+      - name: Clone Parent and Submodules
         run: |
-          # This checks what repositories the token can actually "see"
-          curl -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
-               -H "Accept: application/vnd.github+json" \
-               https://api.github.com/installation/repositories
+          # 1. Use the / slash instead of : 
+          # 2. Add --recurse-submodules to pull the backend servers
+          git clone --recurse-submodules \
+            https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/canonical/landscape-packaging.git
 
-      - name: Attempt Clone
-        run: |
-          # Try to clone the backend repo that has the submodules
-          git clone https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/canonical/landscape-packaging.git
+      # - name: Verify Token Permissions
+      #   run: |
+      #     # This checks what repositories the token can actually "see"
+      #     curl -H "Authorization: Bearer ${{ steps.get_token.outputs.token }}" \
+      #          -H "Accept: application/vnd.github+json" \
+      #          https://api.github.com/installation/repositories
+
+      # - name: Attempt Clone
+      #   run: |
+      #     # Try to clone the backend repo that has the submodules
+      #     git clone https://x-access-token:${{ steps.get_token.outputs.token }}@github.com/canonical/landscape-packaging.git
