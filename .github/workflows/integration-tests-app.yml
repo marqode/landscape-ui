@@ -1,0 +1,212 @@
+name: Integration Tests (GitHub App)
+
+on:
+  workflow_dispatch:
+    inputs:
+      server_ref:
+        description: "landscape-server ref (reserved for future use — submodule is currently pinned by landscape-packaging)"
+        default: "main"
+        required: false
+
+permissions:
+  contents: read
+
+# One run at a time. GitHub-hosted runners are ephemeral VMs, so a cancelled
+# run destroys the VM and its Docker containers automatically — no orphan risk.
+# NOTE: if this workflow moves to self-hosted runners, add a runner-level
+# periodic cleanup (e.g. docker system prune cron) since cancel-in-progress
+# kills the runner process before if: always() teardown can execute.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: true
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    env:
+      LANDSCAPE_DEPLOYMENT_MODE: standalone
+      CI_ADMIN_EMAIL: ci-admin@example.com
+
+    steps:
+      # Current repo checkout uses the implicit GITHUB_TOKEN — no App token needed.
+      # Runs first so subsequent checkouts cannot interfere with the SSH rewrite order.
+      - name: Checkout landscape-ui
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      # Mints a short-lived installation token (≤1 h) scoped to the Canonical repos
+      # this job needs. Requires LANDSCAPE_PACKAGER_APP_ID (var) and
+      # LANDSCAPE_PACKAGER_PRIVATE_KEY (secret) to be set on this repo.
+      - name: Generate App Token
+        id: get_token
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
+        with:
+          app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
+          private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
+          owner: canonical
+          repositories: "landscape-packaging,landscape-go,landscape-server"
+
+      # Checks out top-level only — submodule auth is handled below via url.insteadOf.
+      # actions/checkout only injects HTTPS credentials; landscape-packaging submodules
+      # use SSH URLs so the credential would be silently ignored. persist-credentials:
+      # false avoids a stale credential interfering with the rewrite step.
+      - name: Checkout landscape-packaging (top-level only)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          repository: canonical/landscape-packaging
+          token: ${{ steps.get_token.outputs.token }}
+          submodules: false
+          persist-credentials: false
+          path: .landscape-packaging
+
+      # Must run AFTER all actions/checkout steps (checkout resets git config)
+      # and BEFORE submodule init and go mod vendor.
+      # Two insteadOf rules on the same target URL:
+      #   git@github.com: → covers SSH submodule URLs
+      #   https://github.com/ → covers Go module HTTPS fetches
+      # Token via env: to avoid interpolating it into the shell command string.
+      - name: Rewrite GitHub URLs to authenticated HTTPS
+        env:
+          TOKEN: ${{ steps.get_token.outputs.token }}
+        run: |
+          git config --global \
+            url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
+            "git@github.com:"
+          git config --global --add \
+            url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
+            "https://github.com/"
+
+      - name: Initialise landscape-packaging submodules
+        working-directory: .landscape-packaging
+        run: git submodule update --init --recursive
+
+      - name: Generate ephemeral CI password
+        run: |
+          _pass=$(openssl rand -hex 16)
+          echo "::add-mask::$_pass"
+          echo "CI_ADMIN_PASSWORD=$_pass" >> "$GITHUB_ENV"
+
+      - name: Create landscape-server bind-mount directories
+        run: |
+          mkdir -p \
+            .landscape-packaging/landscape-server/.venv \
+            .landscape-packaging/landscape-server/build \
+            .landscape-packaging/landscape-server/var/log
+
+      - name: Vendor landscape-go dependencies
+        working-directory: .landscape-packaging/landscape-go
+        run: GOPRIVATE="github.com/canonical/*" go mod vendor
+
+      # Ensures docker compose wait and full schema validation are available.
+      # Installs to ~/.docker/cli-plugins to avoid permission issues on the runner.
+      - name: Install Docker Compose v2.36+
+        run: |
+          COMPOSE_VERSION="v2.36.0"
+          mkdir -p ~/.docker/cli-plugins
+          curl -fsSL "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+            -o ~/.docker/cli-plugins/docker-compose
+          chmod +x ~/.docker/cli-plugins/docker-compose
+          docker compose version
+
+      # initial_sync is a Docker Desktop-only extension not in the open-source schema.
+      # The landscape-ui service is not started in CI so removing it has no effect.
+      - name: Patch compose.yaml for CI compatibility
+        run: sed -i '/initial_sync:/d' .landscape-packaging/docker/ui-dev/compose.yaml
+
+      - name: Start backend stack
+        working-directory: .landscape-packaging/docker/ui-dev
+        run: |
+          _uid=$(id -u)
+          _gid=$(id -g)
+          _uname=$(whoami)
+          env UID="$_uid" GID="$_gid" UNAME="$_uname" \
+            docker compose \
+              -p "ls-integration-${{ github.run_id }}" \
+              up -d \
+              postgresql rabbitmq rsyslog builder \
+              package-search api appserver fake-openid
+
+      # The builder runs schema patches then exits. The api container passes its
+      # Docker healthcheck before the DB schema is ready, so wait for the builder
+      # to exit cleanly before probing HTTP endpoints.
+      - name: Wait for builder to finish schema migrations
+        run: |
+          docker compose \
+            -p "ls-integration-${{ github.run_id }}" \
+            -f .landscape-packaging/docker/ui-dev/compose.yaml \
+            wait builder
+          EXIT=$(docker inspect --format='{{.State.ExitCode}}' landscape-builder 2>/dev/null || echo "0")
+          if [ "$EXIT" != "0" ]; then
+            echo "Builder failed with exit code $EXIT"
+            docker compose -p "ls-integration-${{ github.run_id }}" \
+              -f .landscape-packaging/docker/ui-dev/compose.yaml \
+              logs --tail=100 builder
+            exit 1
+          fi
+
+      # /api/v2/ root may 404; login/methods is always 200 when the API is serving.
+      # 120 s is sufficient once the builder has exited.
+      - name: Wait for API and appserver to be ready
+        run: |
+          timeout 120 bash -c \
+            'until curl -sf --max-time 5 http://localhost:9091/api/v2/login/methods && \
+                   curl -sf --max-time 5 http://localhost:8080/; \
+             do sleep 5; done' || {
+            echo "=== Timed out. Container states ==="
+            docker compose -p "ls-integration-${{ github.run_id }}" \
+              -f .landscape-packaging/docker/ui-dev/compose.yaml ps
+            echo "=== API logs (last 50 lines) ==="
+            docker compose -p "ls-integration-${{ github.run_id }}" \
+              -f .landscape-packaging/docker/ui-dev/compose.yaml \
+              logs --tail=50 api
+            exit 1
+          }
+
+      - name: Seed admin account
+        run: |
+          docker exec landscape-api \
+            uv run python bootstrap-account \
+              --admin_email "$CI_ADMIN_EMAIL" \
+              --admin_name "CI Test Admin" \
+              --admin_password "$CI_ADMIN_PASSWORD" \
+              --root_url "http://localhost:5173/"
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
+        with:
+          version: 10
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run integration tests
+        run: pnpm exec playwright test --config playwright.integration.config.ts
+        env:
+          CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
+          CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-integration-report
+          path: playwright-integration-report
+          retention-days: 14
+
+      - name: Teardown backend stack
+        if: always()
+        run: |
+          docker compose \
+            -p "ls-integration-${{ github.run_id }}" \
+            -f .landscape-packaging/docker/ui-dev/compose.yaml \
+            down --remove-orphans --volumes
