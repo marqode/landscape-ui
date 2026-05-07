@@ -2,11 +2,9 @@ name: Test GitHub App Access
 
 on: workflow_dispatch
 
-# Least-privilege: this job only reads repository content.
 permissions:
   contents: read
 
-# Allow only one run of this workflow at a time; cancel any queued duplicate.
 concurrency:
   group: ${{ github.workflow }}
   cancel-in-progress: true
@@ -16,42 +14,23 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ── 1. Mint a short-lived GitHub App installation token ────────────────
+      # Mints a short-lived installation token (≤1 h) scoped to the listed
+      # repos. Requires LANDSCAPE_PACKAGER_APP_ID (var) and
+      # LANDSCAPE_PACKAGER_PRIVATE_KEY (secret) to be set on this repo.
       - name: Generate App Token
         id: get_token
-        # Pin to full SHA; v1 mutable tag is not safe.
-        # Renovate / Dependabot will keep this SHA current.
         uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1.12.0
         with:
           app-id: ${{ vars.LANDSCAPE_PACKAGER_APP_ID }}
           private-key: ${{ secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY }}
           owner: canonical
-          # No spaces around commas — canonical form for this input.
           repositories: "landscape-packaging,landscape-go,landscape-server,landscape-ui"
 
-      # ── 2. Checkout the top-level repo only (no submodules yet) ───────────
-      #
-      # WHY submodules: false?
-      #   actions/checkout handles submodule auth by setting
-      #   http.https://github.com/.extraheader, which only applies to HTTPS
-      #   URLs. The submodules in landscape-packaging use SSH URLs
-      #   (git@github.com:…), so the HTTPS credential is never sent for them.
-      #   The action has no built-in SSH→HTTPS fallback when token: is used.
-      #
-      #   We also cannot pre-set a url.insteadOf rule and have it survive
-      #   the action's own internal git config initialisation — the action
-      #   re-configures the git environment as it initialises the workspace
-      #   and its own insteadOf rules (written last) win the precedence race.
-      #
-      #   Solution: give the action nothing to do with submodules, then drive
-      #   the SSH→HTTPS rewrite and submodule init ourselves in the next two
-      #   steps where we fully control the ordering.
-      #
-      # WHY persist-credentials: false?
-      #   We will supply all authentication through the global url.insteadOf
-      #   rule in step 3. Leaving a persisted credential in the local git
-      #   config is redundant and adds a second credential source that could
-      #   interfere with git's URL-matching logic.
+      # Checks out the top-level tree only (submodules: false).
+      # actions/checkout only injects HTTPS credentials; the submodules in
+      # landscape-packaging use SSH URLs, so the credential would be silently
+      # ignored. We also use persist-credentials: false to avoid a stale
+      # credential interfering with the url.insteadOf rule below.
       - name: Checkout landscape-packaging (top-level only)
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
@@ -61,18 +40,10 @@ jobs:
           persist-credentials: false
           path: landscape-packaging
 
-      # ── 3. Rewrite SSH submodule URLs to HTTPS and embed the App token ────
-      #
-      # This must run AFTER actions/checkout so the action cannot clobber the
-      # rule. It must run BEFORE git submodule update so the rule is in effect
-      # for every recursive fetch.
-      #
-      # The token is passed via env: (not inline ${{ … }}) so it is never
-      # interpolated into the shell command string itself — it stays in an
-      # environment variable slot and is only read by the shell at runtime.
-      #
-      # On a GitHub-hosted runner the VM is discarded after the job, so
-      # there is no need to clean up ~/.gitconfig afterward.
+      # Must run AFTER checkout (which resets git config) and BEFORE submodule
+      # init. Token via env: to avoid interpolating it into the command string.
+      # Rewrites git@github.com: → https://x-access-token:<token>@github.com/
+      # globally so every recursive submodule fetch uses HTTPS + App token.
       - name: Rewrite SSH submodule URLs to authenticated HTTPS
         env:
           TOKEN: ${{ steps.get_token.outputs.token }}
@@ -81,12 +52,6 @@ jobs:
             url."https://x-access-token:${TOKEN}@github.com/".insteadOf \
             "git@github.com:"
 
-      # ── 4. Initialise submodules now that auth is in place ────────────────
-      #
-      # git reads the global url.insteadOf rule for every network call here,
-      # so git@github.com:canonical/landscape-server.git is transparently
-      # rewritten to https://x-access-token:<token>@github.com/canonical/
-      # landscape-server.git before any TCP connection is made.
       - name: Initialise submodules recursively
         working-directory: landscape-packaging
         run: git submodule update --init --recursive
