@@ -144,15 +144,26 @@ the Playwright config, so tests start logged in.
 ### SaaS mode test
 
 Name the file `*.saas.integration.spec.ts`. These tests run with
-`VITE_SELF_HOSTED_ENV=false` and do not require a live backend.
+`VITE_SELF_HOSTED_ENV=false` and **require a live backend** — the same stack as
+self-hosted tests. Navigate to a page that makes a real API call first to confirm
+the session is healthy, then assert on SaaS-specific behaviour.
 
 ```ts
 // e2e/integration/routing/my-guard.saas.integration.spec.ts
 import { test, expect } from "@playwright/test";
 
+test.use({ storageState: "e2e/integration/.auth/state.json" });
+
 test("self-hosted-only route redirects to /env-error in SaaS mode", async ({
   page,
 }) => {
+  // Confirm API and auth are working in SaaS mode before asserting the guard.
+  await page.goto("/instances");
+  await page.waitForLoadState("networkidle");
+  await expect(page.getByRole("heading", { name: /instances/i })).toBeVisible({
+    timeout: 15_000,
+  });
+
   await page.goto("/my-self-hosted-only-route");
   await page.waitForURL("**/env-error", { timeout: 10_000 });
   await expect(page).toHaveURL(/\/env-error/);
