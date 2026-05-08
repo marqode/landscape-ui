@@ -14,9 +14,9 @@ import {
   Icon,
   ICONS,
   Input,
-  Textarea,
   Tooltip,
 } from "@canonical/react-components";
+import GpgKeyField from "@/components/form/GpgKeyField";
 import { getFormikError } from "@/utils/formikErrors";
 import { getSourceType } from "../MirrorDetails/helpers";
 import {
@@ -48,6 +48,7 @@ const EditMirrorForm: FC = () => {
       verificationGpgKey: mirror.gpgKey?.armor,
       packageFilter: mirror.filter,
       includeDependencies: mirror.filterWithDeps,
+      keepCurrentGpgKey: !!mirror.gpgKey,
     },
 
     validationSchema: Yup.object().shape({
@@ -64,7 +65,11 @@ const EditMirrorForm: FC = () => {
           downloadUdebs: values.downloadUdebPackages,
           downloadSources: values.downloadSources,
           downloadInstaller: values.downloadInstallerFiles,
-          gpgKey: { armor: values.verificationGpgKey || null },
+          ...(!values.keepCurrentGpgKey && {
+            gpgKey: values.verificationGpgKey
+              ? { armor: values.verificationGpgKey }
+              : null,
+          }),
           filter: values.packageFilter,
           filterWithDeps: values.packageFilter
             ? values.includeDependencies
@@ -132,6 +137,7 @@ const EditMirrorForm: FC = () => {
                   label="Preserve signatures"
                   {...formik.getFieldProps("preserveSignatures")}
                   checked={formik.values.preserveSignatures}
+                  disabled
                   inline
                 />{" "}
                 <Tooltip
@@ -148,6 +154,7 @@ const EditMirrorForm: FC = () => {
                     type="text"
                     label="Package filter"
                     {...formik.getFieldProps("packageFilter")}
+                    disabled={formik.values.preserveSignatures}
                   />
                 </div>
                 <MirrorFilterHelpButton />
@@ -159,7 +166,10 @@ const EditMirrorForm: FC = () => {
                   !!formik.values.packageFilter &&
                   formik.values.includeDependencies
                 }
-                disabled={!formik.values.packageFilter}
+                disabled={
+                  !formik.values.packageFilter ||
+                  formik.values.preserveSignatures
+                }
                 inline
               />
               <p className={classes.heading}>Download options:</p>
@@ -194,10 +204,21 @@ const EditMirrorForm: FC = () => {
                   title="Authentication"
                   titleClassName="p-text--small-caps"
                 >
-                  <Textarea
-                    label="Verification GPG key"
-                    {...formik.getFieldProps("verificationGpgKey")}
-                    error={getFormikError(formik, "verificationGpgKey")}
+                  <GpgKeyField
+                    existingKey={mirror.gpgKey}
+                    keepCurrentKey={formik.values.keepCurrentGpgKey}
+                    gpgKeyValue={formik.values.verificationGpgKey}
+                    gpgKeyError={getFormikError(formik, "verificationGpgKey")}
+                    textareaLabel="Verification GPG key"
+                    onKeepCurrentChange={(checked) =>
+                      formik.setFieldValue("keepCurrentGpgKey", checked)
+                    }
+                    onGpgKeyChange={(value) =>
+                      formik.setFieldValue("verificationGpgKey", value)
+                    }
+                    onGpgKeyBlur={() =>
+                      formik.setFieldTouched("verificationGpgKey", true)
+                    }
                   />
                 </Blocks.Item>
               )}

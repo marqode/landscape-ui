@@ -7,4 +7,5 @@ export interface FormProps {
   verificationGpgKey?: string;
   packageFilter?: string;
   includeDependencies?: boolean;
+  keepCurrentGpgKey: boolean;
 }
