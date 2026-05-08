@@ -20,8 +20,8 @@ on:
     - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
-      server_ref:
-        description: "landscape-server ref (reserved for future use — submodule is currently pinned by landscape-packaging)"
+      packaging_ref:
+        description: "landscape-packaging branch/tag/SHA to test against. Defaults to main. Controls which pinned versions of landscape-go and landscape-server are used."
         default: "main"
         required: false
 
@@ -70,6 +70,7 @@ jobs:
         with:
           repository: canonical/landscape-packaging
           token: ${{ steps.get_token.outputs.token }}
+          ref: ${{ inputs.packaging_ref || 'main' }}
           submodules: false
           persist-credentials: false
           path: .landscape-packaging
