@@ -15,7 +15,15 @@ See [e2e/integration/README.md](../e2e/integration/README.md) for a quick-start 
 
 **SaaS mode** (`*.saas.integration.spec.ts`)
 
-- Repository routes (`/repositories/publication-targets`, `/repositories/publications`, `/repositories/mirrors`, `/repositories/local-repositories`) redirect to `/env-error` when `VITE_SELF_HOSTED_ENV=false`
+Both suites run against the same backend. SaaS tests use `VITE_SELF_HOSTED_ENV=false` and
+navigate to a real API page first (to confirm the session and proxy are healthy), then
+assert on SaaS-specific behaviour:
+
+- Instances page loads real API data with `VITE_SELF_HOSTED_ENV=false`
+- Self-hosted-only repository routes (`/repositories/publication-targets`, etc.) redirect to `/env-error`
+
+> If the API introduces server-side SaaS feature gating, SaaS tests may need a dedicated
+> backend instance. For now the same landscape-server serves both modes.
 
 ## Workflow
 
@@ -125,7 +133,7 @@ pnpm exec playwright install chromium
 # Self-hosted mode (requires live backend)
 pnpm exec playwright test --config playwright.integration.config.ts
 
-# SaaS mode guard tests (no backend needed — Vite only)
+# SaaS mode (same backend, VITE_SELF_HOSTED_ENV=false)
 pnpm exec playwright test --config playwright.integration.saas.config.ts
 ```
 

@@ -1,7 +1,6 @@
 # Integration Tests
 
-Playwright tests that run against a real Landscape backend stack in Docker. They verify
-actual API contract fidelity — things MSW-backed unit tests cannot catch.
+Playwright tests that run against the Landscape backend stack in Docker.
 
 For full architecture details, design decisions, and Phase 3 roadmap, see
 [docs/integration-testing.md](../../docs/integration-testing.md).
@@ -24,7 +23,7 @@ automatically on:
 3. Set `packaging_ref` to any branch, tag, or SHA from `canonical/landscape-packaging`
    (leave blank to use `main`)
 
-> `packaging_ref` pins the entire backend stack — `landscape-go` and `landscape-server`
+> `packaging_ref` pins the backend stack. `landscape-go` and `landscape-server`
 > are submodules of `landscape-packaging`, so one input controls all three.
 
 ---
@@ -34,11 +33,27 @@ automatically on:
 | Suite | Config | Matches | Backend required |
 |-------|--------|---------|-----------------|
 | Self-hosted | `playwright.integration.config.ts` | `*.integration.spec.ts` | Yes |
-| SaaS mode | `playwright.integration.saas.config.ts` | `*.saas.integration.spec.ts` | No |
+| SaaS mode | `playwright.integration.saas.config.ts` | `*.saas.integration.spec.ts` | Yes |
+
+Both suites run against the **same backend** (landscape-server + landscape-go). The
+difference is the Vite build mode:
+
+- **Self-hosted** (`--mode e2e`): `VITE_SELF_HOSTED_ENV=true`. Tests features only
+  available in self-hosted deployments (debarchive, repository management, etc.).
+- **SaaS mode** (`--mode e2e.saas`): `VITE_SELF_HOSTED_ENV=false`. Tests that core
+  features still work via real API calls, and that self-hosted-only routes redirect to
+  `/env-error` rather than rendering.
+
+SaaS tests navigate to a page that makes a real API call first (confirming the session
+and proxy are healthy under the SaaS flag), then assert on SaaS-specific behaviour. This
+distinguishes frontend guard failures from backend or auth failures.
+
+> **Future:** If the Landscape API introduces server-side SaaS feature gating, SaaS
+> tests may need a dedicated SaaS backend instance. For now the same server serves both.
 
 The naming convention is enforced by `testIgnore` in the self-hosted config — any file
-ending in `.saas.integration.spec.ts` is automatically excluded from the self-hosted run
-and picked up only by the SaaS config.
+ending in `.saas.integration.spec.ts` is excluded from the self-hosted run and picked up
+only by the SaaS config.
 
 ---
 
@@ -94,7 +109,7 @@ pnpm exec playwright install chromium
 # Self-hosted mode (live backend required)
 pnpm exec playwright test --config playwright.integration.config.ts
 
-# SaaS mode guards (Vite only, no backend needed)
+# SaaS mode (same backend, VITE_SELF_HOSTED_ENV=false)
 pnpm exec playwright test --config playwright.integration.saas.config.ts
 ```
 
@@ -116,7 +131,9 @@ import { test, expect } from "@playwright/test";
 test.describe("my feature (real backend)", () => {
   test("does something real", async ({ page }) => {
     await page.goto("/my-feature");
-    await expect(page.getByRole("heading", { name: "My Feature" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "My Feature" }),
+    ).toBeVisible();
   });
 });
 ```
@@ -133,7 +150,9 @@ Name the file `*.saas.integration.spec.ts`. These tests run with
 // e2e/integration/routing/my-guard.saas.integration.spec.ts
 import { test, expect } from "@playwright/test";
 
-test("self-hosted-only route redirects to /env-error in SaaS mode", async ({ page }) => {
+test("self-hosted-only route redirects to /env-error in SaaS mode", async ({
+  page,
+}) => {
   await page.goto("/my-self-hosted-only-route");
   await page.waitForURL("**/env-error", { timeout: 10_000 });
   await expect(page).toHaveURL(/\/env-error/);
@@ -144,11 +163,11 @@ test("self-hosted-only route redirects to /env-error in SaaS mode", async ({ pag
 
 ## Required secrets
 
-| Secret / Variable | Purpose |
-|-------------------|---------|
-| `vars.LANDSCAPE_PACKAGER_APP_ID` | GitHub App ID |
-| `secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY` | GitHub App private key (PEM) |
-| `secrets.LANDSCAPE_PROTO_PAT` | Fine-grained PAT for `canonical/landscape-proto` (Go vendoring) |
+| Secret / Variable                        | Purpose                                                         |
+| ---------------------------------------- | --------------------------------------------------------------- |
+| `vars.LANDSCAPE_PACKAGER_APP_ID`         | GitHub App ID                                                   |
+| `secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY` | GitHub App private key (PEM)                                    |
+| `secrets.LANDSCAPE_PROTO_PAT`            | Fine-grained PAT for `canonical/landscape-proto` (Go vendoring) |
 
 The GitHub App must be installed on `canonical/landscape-packaging`,
 `canonical/landscape-go`, and `canonical/landscape-server`.
