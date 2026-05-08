@@ -183,16 +183,77 @@ See [debarchive-feature-context.md](debarchive-feature-context.md) for all Phase
         echo "ref=main" >> $GITHUB_OUTPUT
       fi
   ```
+  The App token scope already covers `landscape-packaging`; no credential changes needed.
+
 - **Standalone `compose.ci.yaml`** owned by this repo. The current `compose.ci-override.yaml`
   approach requires explicit workarounds for every dev-specific field that bleeds through from
   upstream (`command`, `working_dir`, `healthcheck`, `pull_policy`, `GO_DOTENV`, `GOFLAGS`).
-  A standalone file eliminates this class of issue entirely. Defer until the debarchive API
-  stabilises to avoid maintaining a copy that changes frequently.
+  A standalone file eliminates this class of issue entirely.
   Alternative: upstream PR to `landscape-packaging` adding a `--profile ci` compose variant.
+  See [debarchive-feature-context.md](debarchive-feature-context.md) for the full option
+  analysis (Option A / B / C).
+
+  **Gate: seeder stability.** Do not migrate to a standalone file until all of the following
+  are true:
+  1. The debarchive seeder exits 0 in CI without the non-blocking workaround — meaning the
+     new seeder version (idempotent 409 handling) has merged into `landscape-packaging` and
+     the submodule pin has been bumped.
+  2. The seeder strict exit-code check has been re-enabled in the workflow (remove the
+     `::warning::` bypass and restore `exit 1` on non-zero seeder exit).
+  3. A full CI run has passed without any seeder-related warnings for at least 3 consecutive
+     nightly runs (check **Actions → Integration Tests → schedule** runs).
+  4. No new debarchive API endpoints have been added in the last two weeks (the service
+     interface is no longer actively growing). Check `landscape-go` commit history on the
+     `debarchive/` path.
+
+  Once all four gates pass, the service contract is stable enough that a standalone
+  `compose.ci.yaml` won't need frequent updates.
+
 - **Migrate `LANDSCAPE_PROTO_PAT` to App install.** When the `landscape-packager` App is
   installed on `canonical/landscape-proto`, add it to `repositories:` in the token step and
   remove the `git config url.insteadOf` line for landscape-proto (~4 lines).
-- **Self-hosted runner evaluation.** Docker layer cache would cut cold-start from ~4.5 min to
-  seconds. Unblocks faster iteration on new test suites.
+
+- **Self-hosted runner.** Docker layer cache on a self-hosted runner cuts the dominant CI
+  cost (cold debarchive image build, ~4.5 min) to seconds. Required before adding more
+  services to the stack.
+
+  **What is needed:**
+
+  *Runner:* An ARM64 or AMD64 Linux machine (or VM) with:
+  - Docker Engine (not Docker Desktop) with BuildKit enabled
+  - At least 4 CPU cores and 8 GB RAM (the Go build is the bottleneck)
+  - 20 GB of free disk for Docker layer cache
+  - Persistent storage across jobs (the cache is only useful if it survives between runs)
+  - Outbound HTTPS access to `github.com`, `ghcr.io`, `proxy.golang.org`
+
+  *Registration:*
+  - Create a runner group in the `marqode/landscape-ui` repository settings
+    (**Settings → Actions → Runners → New self-hosted runner**)
+  - Install the GitHub Actions runner agent; configure as a service so it survives reboots
+  - Label the runner (e.g. `self-hosted`, `Linux`, `landscape-ci`) — labels must match the
+    `runs-on:` array in the workflow job
+
+  *Workflow change (two lines):*
+  ```yaml
+  # Before
+  runs-on: ubuntu-latest
+  # After
+  runs-on: [self-hosted, Linux, landscape-ci]
+  ```
+
+  *Validation:* After switching, verify:
+  1. First run (cold cache): total time should match or beat `ubuntu-latest`
+  2. Second run (warm cache): debarchive build step should complete in under 30 s
+  3. Docker layer cache is persisting — check `docker buildx du` on the runner machine
+     between runs
+
+  *Security note:* Self-hosted runners on public repositories can execute arbitrary code
+  from fork PRs unless pull-request workflows are restricted to approved contributors.
+  Since this workflow requires organisation secrets (`LANDSCAPE_PACKAGER_PRIVATE_KEY`,
+  `LANDSCAPE_PROTO_PAT`), it is already protected — the secrets are only available on
+  the `pull_request` trigger from non-fork branches, and the `workflow_dispatch`/`push`
+  triggers require write access. Confirm this holds before enabling the runner on any
+  fork-accessible workflow.
+
 
 
