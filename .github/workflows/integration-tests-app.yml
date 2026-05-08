@@ -157,7 +157,7 @@ jobs:
                 - DEB_ARCHIVE_DATABASE_USER=postgres
                 - DEB_ARCHIVE_DATABASE_PASSWORD=postgres
               healthcheck:
-                test: ["CMD-SHELL", "curl -s -o /dev/null --max-time 5 http://localhost:8000/ || exit 1"]
+                test: ["CMD-SHELL", "bash -c '</dev/tcp/localhost/8000' 2>/dev/null"]
                 interval: 10s
                 timeout: 5s
                 retries: 12
