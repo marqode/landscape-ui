@@ -27,8 +27,17 @@ Both are `workflow_dispatch`-only. Nightly + push-to-main triggers are deferred 
 **Required credentials (GitHub App workflow):**
 - `vars.LANDSCAPE_PACKAGER_APP_ID` — GitHub App ID (repository variable, not a secret)
 - `secrets.LANDSCAPE_PACKAGER_PRIVATE_KEY` — GitHub App private key (PEM format)
+- `secrets.LANDSCAPE_PROTO_PAT` — fine-grained PAT with `Contents: Read` on `canonical/landscape-proto` only *(Phase 2+; required for Go vendoring)*
 
 The App must be installed on `canonical/landscape-packaging`, `canonical/landscape-go`, and `canonical/landscape-server`.
+
+> **Note on `LANDSCAPE_PROTO_PAT`:** `landscape-proto` is not covered by the GitHub App
+> installation. A separate fine-grained PAT is used to vendor this private Go dependency
+> in CI. The PAT is applied as a `git url.insteadOf` rewrite scoped to
+> `github.com/canonical/landscape-proto` only, so it never touches other repos.
+> Migration path: once the landscape-packager App is installed on `landscape-proto`,
+> add it to the `repositories:` list in `create-github-app-token` and remove the PAT
+> `git config` line (~4 lines of diff). See [debarchive-feature-context.md](debarchive-feature-context.md).
 
 **Required credentials (PAT fallback workflow):**
 - `secrets.LANDSCAPE_PACKAGER_TOKEN` — classic PAT with `repo: Contents: Read` on the three repos above.
@@ -111,13 +120,31 @@ Credentials are loaded from `.env.integration.local`. The HTML report is written
 | Explicit service list in `docker compose up` | Starts only the services needed for standalone mode; avoids building debarchive (Phase 2). |
 | GitHub App token instead of PAT | Short-lived (≤1 h), scoped to specific repos, no human credentials. SSH submodule URLs rewritten to HTTPS via `url.insteadOf` after checkout (must run after `actions/checkout` resets git config). |
 | `docker wait landscape-builder` (not `docker compose wait`) | `docker compose wait` resolves the project by file path and fails when the working directory differs between the `up` step and the wait step. `docker wait` operates on the container name directly. |
-| `landscape-go` vendor directory not re-generated | `landscape-go` commits its full `vendor/` tree (including private deps like `landscape-proto`). Re-running `go mod vendor` would require App access to `landscape-proto`, which is not installed. |
+| `landscape-go` vendor directory generated via PAT | `vendor/` is gitignored in landscape-go. It is regenerated in CI via `GOPRIVATE=... go mod vendor` using a fine-grained PAT (`LANDSCAPE_PROTO_PAT`) for the private `landscape-proto` dependency. See [debarchive-feature-context.md](debarchive-feature-context.md) for the full credential chain and migration path to App install. |
 
 ## Phase 2 roadmap
 
 - Add nightly schedule + push-to-main triggers (after stability confirmed)
-- Add debarchive stack + seeding
+- Add debarchive stack + seeding ✅ (`feature/debarchive-integration`)
 - SaaS mode matrix (`LANDSCAPE_DEPLOYMENT_MODE=default` + `VITE_SELF_HOSTED_ENV=false`)
 - Evaluate self-hosted runner for Docker layer caching (would cut cold-start from ~4.5 min to seconds)
 - Per-PR branch matching for backend repos
+
+See [debarchive-feature-context.md](debarchive-feature-context.md) for all Phase 2 lessons and pitfalls.
+
+## Phase 3 roadmap
+
+- **Replace `compose.ci-override.yaml` with a standalone `compose.ci.yaml`** owned by this
+  repo. The override approach has required explicit workarounds for every dev-specific field
+  that bleeds through from the upstream `landscape-packaging` compose file (`command`,
+  `working_dir`, `healthcheck`, `pull_policy`, `GO_DOTENV`, `GOFLAGS`). A standalone file
+  eliminates this class of issue entirely. Defer until the service set is stable (post-Phase 2)
+  to avoid maintaining a copy that changes frequently. Alternatively, file a PR to
+  `landscape-packaging` to add a `--profile ci` compose variant upstream.
+- **Migrate `LANDSCAPE_PROTO_PAT` to App install.** When the `landscape-packager` GitHub App
+  is installed on `canonical/landscape-proto`, add it to the `repositories:` list in the
+  `create-github-app-token` step and remove the `git config url.insteadOf` line for
+  landscape-proto. The PAT can then be deleted.
+- Add nightly + push-to-main triggers once Phase 2 stability is confirmed
+- SaaS mode matrix (`VITE_SELF_HOSTED_ENV=false`)
 
