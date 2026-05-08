@@ -124,16 +124,34 @@ Credentials are loaded from `.env.integration.local`. The HTML report is written
 
 ## Phase 2 roadmap
 
-- Add nightly schedule + push-to-main triggers (after stability confirmed)
+- Add nightly schedule + push-to-main triggers (after stability confirmed) ✅
 - Add debarchive stack + seeding ✅ (`feature/debarchive-integration`)
 - SaaS mode matrix (`LANDSCAPE_DEPLOYMENT_MODE=default` + `VITE_SELF_HOSTED_ENV=false`)
 - Evaluate self-hosted runner for Docker layer caching (would cut cold-start from ~4.5 min to seconds)
-- Per-PR branch matching for backend repos
 
 See [debarchive-feature-context.md](debarchive-feature-context.md) for all Phase 2 lessons and pitfalls.
 
 ## Phase 3 roadmap
 
+- **Per-PR branch matching for backend repos.** When a UI PR branch exists in
+  `landscape-packaging` under the same name, check out that branch instead of `main`.
+  Achievable with the existing GitHub App token — use `git ls-remote` against the
+  authenticated remote to probe branch existence before checkout, then fall back to
+  `main`. Example:
+  ```yaml
+  - name: Resolve backend branch
+    id: backend-branch
+    run: |
+      BRANCH="${{ github.head_ref || github.ref_name }}"
+      if git ls-remote --exit-code --heads \
+           "https://x-access-token:${{ steps.token.outputs.token }}@github.com/canonical/landscape-packaging.git" \
+           "$BRANCH" >/dev/null 2>&1; then
+        echo "ref=$BRANCH" >> $GITHUB_OUTPUT
+      else
+        echo "ref=main" >> $GITHUB_OUTPUT
+      fi
+  ```
+  The App token scope already covers `landscape-packaging`; no credential changes needed.
 - **Replace `compose.ci-override.yaml` with a standalone `compose.ci.yaml`** owned by this
   repo. The override approach has required explicit workarounds for every dev-specific field
   that bleeds through from the upstream `landscape-packaging` compose file (`command`,
