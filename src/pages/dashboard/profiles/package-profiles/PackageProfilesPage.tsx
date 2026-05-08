@@ -45,7 +45,7 @@ const PackageProfileEditSidePanel = lazy(
 
 const PackageProfilesPage: FC = () => {
   const { getPackageProfilesQuery } = usePackageProfiles();
-  const { sidePath, lastSidePathSegment, createPageParamsSetter } =
+  const { sidePath, lastSidePathSegment, popSidePathUntilClear } =
     usePageParams();
 
   const { packageProfile } = useGetPagePackageProfile();
@@ -94,7 +94,7 @@ const PackageProfilesPage: FC = () => {
       </PageContent>
 
       <SidePanel
-        onClose={createPageParamsSetter({ sidePath: [], name: "" })}
+        onClose={popSidePathUntilClear}
         isOpen={!!sidePath.length}
         size={
           lastSidePathSegment === "add" ||

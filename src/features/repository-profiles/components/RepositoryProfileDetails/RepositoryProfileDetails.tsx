@@ -34,10 +34,8 @@ const aptSourceColumns: Column<APTSource>[] = [
 ];
 
 const RepositoryProfileDetails: FC = () => {
-  const { name, createPageParamsSetter, createSidePathPusher } =
-    usePageParams();
+  const { name, closeSidePanel, createSidePathPusher } = usePageParams();
   const profile = useGetRepositoryProfile(name).data;
-  const closePanel = createPageParamsSetter({ sidePath: [], name: "" });
   const debug = useDebug();
   const { notify } = useNotify();
 
@@ -77,7 +75,7 @@ const RepositoryProfileDetails: FC = () => {
         message: `Repository profile "${profile.title}" removed successfully`,
       });
 
-      closePanel();
+      closeSidePanel();
     } catch (error) {
       debug(error);
     } finally {

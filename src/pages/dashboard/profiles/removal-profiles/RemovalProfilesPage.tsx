@@ -35,7 +35,7 @@ const RemovalProfilesPage: FC = () => {
     isPending: isGettingRemovalProfiles,
   } = getRemovalProfilesQuery();
 
-  const { sidePath, lastSidePathSegment, createPageParamsSetter } =
+  const { sidePath, lastSidePathSegment, popSidePathUntilClear } =
     usePageParams();
 
   const { removalProfile } = useGetPageRemovalProfile();
@@ -70,10 +70,7 @@ const RemovalProfilesPage: FC = () => {
         />
       </PageContent>
 
-      <SidePanel
-        isOpen={!!sidePath.length}
-        onClose={createPageParamsSetter({ sidePath: [], name: "" })}
-      >
+      <SidePanel isOpen={!!sidePath.length} onClose={popSidePathUntilClear}>
         {lastSidePathSegment === "add" && (
           <SidePanel.Suspense key="add">
             <RemovalProfileAddSidePanel />
