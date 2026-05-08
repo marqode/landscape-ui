@@ -413,7 +413,7 @@ const InfoPanel: FC<InfoPanelProps> = ({ instance }) => {
         }}
       />
 
-      <Blocks>
+      <Blocks spaced>
         <Blocks.Item title="Status">
           <InfoGrid>
             <InfoGrid.Item
