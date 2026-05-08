@@ -3,8 +3,18 @@ name: Integration Tests (GitHub App)
 on:
   pull_request:
     branches: [dev]
+    paths-ignore:
+      - "docs/**"
+      - "feature-plans/**"
+      - "debian/**"
+      - "**.md"
   push:
     branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "feature-plans/**"
+      - "debian/**"
+      - "**.md"
   schedule:
     # Nightly at 02:00 UTC — catches upstream backend regressions
     - cron: "0 2 * * *"
