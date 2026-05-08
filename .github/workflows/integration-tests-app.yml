@@ -3,6 +3,11 @@ name: Integration Tests (GitHub App)
 on:
   pull_request:
     branches: [dev]
+  push:
+    branches: [main]
+  schedule:
+    # Nightly at 02:00 UTC — catches upstream backend regressions
+    - cron: "0 2 * * *"
   workflow_dispatch:
     inputs:
       server_ref:
@@ -13,14 +18,11 @@ on:
 permissions:
   contents: read
 
-# Group by ref so PRs don't cancel each other; new pushes to the same PR do
-# cancel the prior run. GitHub-hosted runners are ephemeral VMs — a cancelled
-# run destroys the VM and its containers automatically (no orphan risk).
-# NOTE: if this moves to self-hosted runners, add a periodic docker system prune
-# cron since cancel-in-progress kills the process before if: always() teardown.
+# PRs: cancel superseded runs on the same branch.
+# Push to main and nightly schedule: never cancel — let them complete.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   integration-tests:
