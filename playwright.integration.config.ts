@@ -5,6 +5,10 @@ const BASE_URL = "http://localhost:5173";
 export default defineConfig({
   testDir: "e2e/integration",
   testMatch: "**/*.integration.spec.ts",
+  // SaaS-mode tests use a different Vite server mode and must run separately.
+  // Exclude them here so self-hosted mode doesn't try to run them (they would
+  // fail because VITE_SELF_HOSTED_ENV=true and routes don't redirect).
+  testIgnore: "**/*.saas.integration.spec.ts",
 
   // Shared backend is mutable; read-only tests only in Phase 1
   workers: 1,
