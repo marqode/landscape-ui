@@ -111,13 +111,15 @@ Credentials are loaded from `.env.integration.local`. The HTML report is written
 | Explicit service list in `docker compose up` | Starts only the services needed for standalone mode; avoids building debarchive (Phase 2). |
 | GitHub App token instead of PAT | Short-lived (≤1 h), scoped to specific repos, no human credentials. SSH submodule URLs rewritten to HTTPS via `url.insteadOf` after checkout (must run after `actions/checkout` resets git config). |
 | `docker wait landscape-builder` (not `docker compose wait`) | `docker compose wait` resolves the project by file path and fails when the working directory differs between the `up` step and the wait step. `docker wait` operates on the container name directly. |
-| `landscape-go` vendor directory not re-generated | `landscape-go` commits its full `vendor/` tree (including private deps like `landscape-proto`). Re-running `go mod vendor` would require App access to `landscape-proto`, which is not installed. |
+| `landscape-go` vendor directory generated via PAT | `vendor/` is gitignored in landscape-go. It is regenerated in CI via `GOPRIVATE=... go mod vendor` using a fine-grained PAT (`LANDSCAPE_PROTO_PAT`) for the private `landscape-proto` dependency. See [debarchive-feature-context.md](debarchive-feature-context.md) for the full credential chain and migration path to App install. |
 
 ## Phase 2 roadmap
 
 - Add nightly schedule + push-to-main triggers (after stability confirmed)
-- Add debarchive stack + seeding
+- Add debarchive stack + seeding ✅ (feature/debarchive-integration)
 - SaaS mode matrix (`LANDSCAPE_DEPLOYMENT_MODE=default` + `VITE_SELF_HOSTED_ENV=false`)
 - Evaluate self-hosted runner for Docker layer caching (would cut cold-start from ~4.5 min to seconds)
 - Per-PR branch matching for backend repos
+
+See [debarchive-feature-context.md](debarchive-feature-context.md) for all Phase 2 lessons and pitfalls.
 
