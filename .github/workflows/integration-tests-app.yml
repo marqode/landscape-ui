@@ -147,7 +147,8 @@ jobs:
             debarchive:
               image: landscape-debarchive:ci
               pull_policy: never
-              command: ["./server"]
+              command: ["/root/server"]
+              working_dir: /root
               environment:
                 - GO_DOTENV=
                 - GOFLAGS=
