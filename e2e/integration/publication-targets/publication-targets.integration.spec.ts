@@ -37,7 +37,7 @@ test.describe("publication targets page (debarchive)", () => {
 
     for (const name of SEEDED_TARGETS) {
       await expect(
-        page.getByRole("cell", { name }),
+        page.getByRole("row").filter({ hasText: name }),
         `Expected seeded target "${name}" to appear in the table`,
       ).toBeVisible({ timeout: 15_000 });
     }
