@@ -328,12 +328,26 @@ jobs:
           CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
           CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
 
-      - name: Upload test report
+      - name: Run SaaS mode guard tests
+        run: pnpm exec playwright test --config playwright.integration.saas.config.ts
+        env:
+          CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
+          CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
+
+      - name: Upload self-hosted test report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: playwright-integration-report
           path: playwright-integration-report
+          retention-days: 14
+
+      - name: Upload SaaS test report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-integration-saas-report
+          path: playwright-integration-saas-report
           retention-days: 14
 
       - name: Teardown backend stack
