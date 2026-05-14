@@ -37,7 +37,7 @@
  * Test 3 deletes the mirror via the UI. afterAll performs a best-effort API
  * cleanup in case test 3 did not run (e.g. earlier failure).
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 
 test.use({ storageState: "e2e/integration/.auth/state.json" });
 
@@ -69,7 +69,7 @@ interface DebarchiveMirrorList {
 
 /** Suppress the first-run welcome modal that otherwise intercepts page clicks. */
 async function dismissWelcomePopup(
-  page: import("@playwright/test").Page,
+  page: Page,
 ): Promise<void> {
   await page.addInitScript(() => {
     window.localStorage.setItem("_landscape_isWelcomePopupClosed", "true");
@@ -78,7 +78,7 @@ async function dismissWelcomePopup(
 
 /** Fetch the landscape v2 JWT for authenticated API calls. */
 async function getAuthToken(
-  request: import("@playwright/test").APIRequestContext,
+  request: APIRequestContext,
 ): Promise<string> {
   const res = await request.get("/api/v2/me");
   expect(res.ok(), `GET /api/v2/me failed: ${res.status()}`).toBe(true);
@@ -92,7 +92,7 @@ async function getAuthToken(
 
 /** Delete a debarchive mirror by slug if it exists. No-op if not found. */
 async function cleanupMirror(
-  request: import("@playwright/test").APIRequestContext,
+  request: APIRequestContext,
   slug: string,
 ): Promise<void> {
   if (!slug) return;
