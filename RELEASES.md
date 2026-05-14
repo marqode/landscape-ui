@@ -6,12 +6,17 @@ Landscape UI uses **CalVer** (`YY.MM.Point.Build`) aligned with the Ubuntu relea
 
 ## 1. Branching Model
 
-| Branch             | Tier           | Versions               | Publishes to                                                   |
-| ------------------ | -------------- | ---------------------- | -------------------------------------------------------------- |
-| `dev`              | Development    | `<cycle>.0.<run>-dev`  | `ppa-build-dev`                                                |
-| `main`             | Beta           | `<cycle>.0.<run>-beta` | `ppa-build`                                                    |
-| `point/YYYY-MM-DD` | Pinned beta    | `<cycle>.0.<run>-beta` | `ppa-build-point`                                              |
-| `release/YY.MM`    | Released cycle | `YY.MM.1.<run>`        | `ppa-build-YY.MM` (+ `ppa-build-stable` if currently promoted) |
+| Branch             | Tier           | Versions                 | Publishes to                                                   |
+| ------------------ | -------------- | ------------------------ | -------------------------------------------------------------- |
+| `dev`              | Development    | `<cycle>.0.<count>-dev`  | `ppa-build-dev`                                                |
+| `main`             | Beta           | `<cycle>.0.<count>-beta` | `ppa-build`                                                    |
+| `point/YYYY-MM-DD` | Pinned beta    | `<cycle>.0.<count>-beta` | `ppa-build-point`                                              |
+| `release/YY.MM`    | Released cycle | `YY.MM.1.<count>`        | `ppa-build-YY.MM` (+ `ppa-build-stable` if currently promoted) |
+
+`<count>` is a per-branch counter derived from git history, not from `GITHUB_RUN_NUMBER`:
+
+- For `main` / `dev`: total commit count reachable from `HEAD` (large number, but monotonic).
+- For `release/*` / `point/*`: commits added on the branch since it was cut from `main` (`origin/main..HEAD`). The first build of a freshly cut `release/26.04` is `26.04.1.0`; the first cherry-picked fix is `26.04.1.1`; and so on. Counters never collide across branches and don't get inflated by builds running elsewhere.
 
 `<cycle>` for `dev` / `main` / `point/*` is derived from the calendar — the upcoming Ubuntu cut we are working toward (Jan-Apr → `YY.04`, May-Oct → `YY.10`, Nov-Dec → `(YY+1).04`). For `release/YY.MM` it is **pinned to the branch name**, so a hotfix backported in November still ships from the correct cycle.
 
@@ -43,7 +48,7 @@ If your change genuinely does not warrant a CHANGELOG entry (a comment-only twea
 
 When you push, the `Release and PPA Build` workflow:
 
-1. Computes the version (`scripts/calculate-version.cjs`) from branch + date + `GITHUB_RUN_NUMBER`.
+1. Computes the version (`scripts/calculate-version.cjs`) from branch + date + per-branch git commit count.
 2. Bakes version + commit hash into the UI via `VITE_APP_VERSION` and `VITE_APP_COMMIT`.
 3. Force-pushes the compiled artifact to the matching `ppa-build-*` branch.
 4. If the source branch is the current "latest stable" (auto-derived as the highest-numbered `release/YY.MM` on origin, or whatever `STABLE_RELEASE_BRANCH` overrides it to), also force-pushes to `ppa-build-stable`.
@@ -61,7 +66,9 @@ git checkout -B release/YY.MM origin/main
 git push -u origin release/YY.MM
 ```
 
-The first push triggers a build at `YY.MM.1.0` (or whatever the run number is) and creates `ppa-build-YY.MM`. Because the new branch is the highest-numbered `release/*` on origin, the same build also publishes to `ppa-build-stable` automatically — no extra step needed. The previous stable cycle's branch keeps living and keeps publishing to its own `ppa-build-*`; only the `ppa-build-stable` alias moves.
+The first push triggers a build at `YY.MM.1.0` and creates `ppa-build-YY.MM` — the counter is derived from `origin/main..HEAD`, so a freshly cut branch always starts at `0`. Because the new branch is the highest-numbered `release/*` on origin, the same build also publishes to `ppa-build-stable` automatically — no extra step needed. The previous stable cycle's branch keeps living and keeps publishing to its own `ppa-build-*`; only the `ppa-build-stable` alias moves.
+
+> **Before the first push**, close any open Changesets-bot "Version Packages" PR targeting `main`. The bot stamps the PR title with the branch's version shape *at the time it opened the PR*; if you merge it onto the freshly cut release branch, the resulting commit subject will look like `26.04.0.86-beta` (a `main`-shape version) even though the actual built artifact is `26.04.1.0`. Letting Changesets re-open the PR fresh on each branch avoids the confusion.
 
 If for any reason you don't want the new cut to take over `ppa-build-stable` immediately (e.g. you want a few days of soak before promoting), set the `STABLE_RELEASE_BRANCH` Actions variable to the previous cycle's branch before the first push:
 

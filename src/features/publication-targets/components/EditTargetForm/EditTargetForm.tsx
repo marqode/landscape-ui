@@ -4,12 +4,7 @@ import useDebug from "@/hooks/useDebug";
 import usePageParams from "@/hooks/usePageParams";
 import { getFormikError } from "@/utils/formikErrors";
 import useEditPublicationTarget from "../../api/useEditPublicationTarget";
-import {
-  CheckboxInput,
-  Form,
-  Input,
-  Select,
-} from "@canonical/react-components";
+import { CheckboxInput, Form, Input } from "@canonical/react-components";
 import { useFormik } from "formik";
 import type { FC } from "react";
 import type {
@@ -129,8 +124,7 @@ const buildFilesystemPayload = (values: EditTargetFormValues) => ({
 
 const EditTargetForm: FC<EditTargetFormProps> = ({ target }) => {
   const debug = useDebug();
-  const { createPageParamsSetter, popSidePath } = usePageParams();
-  const closeForm = createPageParamsSetter({ sidePath: [], name: "" });
+  const { closeSidePanel, popSidePathUntilClear } = usePageParams();
   const { notify } = useNotify();
   const { editPublicationTargetQuery } = useEditPublicationTarget();
   const { mutateAsync: editTarget } = editPublicationTargetQuery;
@@ -162,7 +156,7 @@ const EditTargetForm: FC<EditTargetFormProps> = ({ target }) => {
           });
         }
 
-        closeForm();
+        closeSidePanel();
 
         notify.success({
           title: "Publication target edited",
@@ -344,11 +338,14 @@ const EditTargetForm: FC<EditTargetFormProps> = ({ target }) => {
             tooltipMessage="The path cannot be changed after the target has been created. To use a different path, create a new publication target."
             {...formik.getFieldProps("path")}
           />
-          <Select
+          <ReadOnlyField
             label="Link method"
-            options={LINK_METHOD_OPTIONS}
-            error={getFormikError(formik, "linkMethod")}
-            {...formik.getFieldProps("linkMethod")}
+            value={
+              LINK_METHOD_OPTIONS.find(
+                (o) => o.value === formik.getFieldProps("linkMethod").value,
+              )?.label
+            }
+            tooltipMessage="The link method cannot be changed after the target has been created. To use a different link method, create a new publication target."
           />
         </>
       )}
@@ -356,7 +353,7 @@ const EditTargetForm: FC<EditTargetFormProps> = ({ target }) => {
       <SidePanelFormButtons
         submitButtonDisabled={formik.isSubmitting}
         submitButtonText="Save changes"
-        onCancel={popSidePath}
+        onCancel={popSidePathUntilClear}
       />
     </Form>
   );

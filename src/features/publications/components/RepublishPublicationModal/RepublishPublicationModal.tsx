@@ -4,6 +4,7 @@ import { ConfirmationModal } from "@canonical/react-components";
 import type { FC } from "react";
 import { usePublishPublication } from "../../api";
 import type { Publication } from "@canonical/landscape-openapi";
+import usePageParams from "@/hooks/usePageParams/usePageParams";
 
 interface RepublishPublicationModalProps {
   readonly publication: Publication;
@@ -20,12 +21,13 @@ const RepublishPublicationModal: FC<RepublishPublicationModalProps> = ({
   const { notify } = useNotify();
   const { publishPublication, isPublishingPublication } =
     usePublishPublication();
+  const { closeSidePanel } = usePageParams();
 
   const handleRepublishPublication = async () => {
     try {
       await publishPublication({
         publicationName: publication.name ?? "", // TODO: change when the api is updated
-        body: { forceOverwrite: true, forceCleanup: true },
+        body: { forceOverwrite: true },
       });
 
       notify.success({
@@ -37,6 +39,7 @@ const RepublishPublicationModal: FC<RepublishPublicationModalProps> = ({
       debug(error);
     } finally {
       close();
+      closeSidePanel();
     }
   };
 

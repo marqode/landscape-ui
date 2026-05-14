@@ -5,26 +5,17 @@ import useSetDynamicFilterValidation from "@/hooks/useDynamicFilterValidation";
 import usePageParams from "@/hooks/usePageParams";
 import { lazy, type FC } from "react";
 
-const AddPublicationForm = lazy(async () =>
-  import("@/features/publications").then((module) => ({
-    default: module.AddPublicationForm,
-  })),
+const AddPublicationForm = lazy(
+  async () => import("@/features/publications/components/AddPublicationForm"),
 );
 
-const PublicationDetailsSidePanel = lazy(async () =>
-  import("@/features/publications").then((module) => ({
-    default: module.PublicationDetailsSidePanel,
-  })),
-);
-
-const AddPublicationTargetForm = lazy(async () =>
-  import("@/features/publication-targets").then((module) => ({
-    default: module.AddPublicationTargetForm,
-  })),
+const PublicationDetailsSidePanel = lazy(
+  async () =>
+    import("@/features/publications/components/PublicationDetailsSidePanel"),
 );
 
 const PublicationsPage: FC = () => {
-  const { sidePath, lastSidePathSegment, createPageParamsSetter } =
+  const { sidePath, lastSidePathSegment, popSidePathUntilClear } =
     usePageParams();
 
   useSetDynamicFilterValidation("sidePath", ["add", "add-target", "view"]);
@@ -32,20 +23,13 @@ const PublicationsPage: FC = () => {
     <PageMain>
       <PublicationsContainer />
 
-      <SidePanel
-        isOpen={!!sidePath.length}
-        onClose={createPageParamsSetter({ sidePath: [], name: "" })}
-      >
+      <SidePanel isOpen={!!sidePath.length} onClose={popSidePathUntilClear}>
         {lastSidePathSegment === "add" && (
           <SidePanel.Suspense key="add">
             <SidePanel.Header>Add publication</SidePanel.Header>
-            <AddPublicationForm />
-          </SidePanel.Suspense>
-        )}
-        {lastSidePathSegment === "add-target" && (
-          <SidePanel.Suspense key="add-target">
-            <SidePanel.Header>Add publication target</SidePanel.Header>
-            <AddPublicationTargetForm />
+            <SidePanel.Content>
+              <AddPublicationForm />
+            </SidePanel.Content>
           </SidePanel.Suspense>
         )}
         {lastSidePathSegment === "view" && (

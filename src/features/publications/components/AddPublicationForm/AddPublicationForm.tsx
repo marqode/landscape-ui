@@ -1,5 +1,6 @@
 import SidePanelFormButtons from "@/components/form/SidePanelFormButtons";
 import ReadOnlyField from "@/components/form/ReadOnlyField";
+import MultiSelectField from "@/components/form/MultiSelectField";
 import Blocks from "@/components/layout/Blocks";
 import { useGetLocalRepositories } from "@/features/local-repositories";
 import { useListMirrors } from "@/features/mirrors";
@@ -16,8 +17,8 @@ import {
   Select,
   Textarea,
   Tooltip,
+  type MultiSelectItem,
 } from "@canonical/react-components";
-import classNames from "classnames";
 import { useFormik } from "formik";
 import type { FC } from "react";
 import { useMemo } from "react";
@@ -40,8 +41,7 @@ import type { FormProps, SelectableSource } from "./types";
 const AddPublicationForm: FC = () => {
   const debug = useDebug();
   const { notify } = useNotify();
-  const { createPageParamsSetter } = usePageParams();
-  const closePanel = createPageParamsSetter({ sidePath: [], name: "" });
+  const { closeSidePanel } = usePageParams();
   const { data: mirrorsData } = useListMirrors();
   const { repositories: locals, isGettingRepositories: isGettingLocals } =
     useGetLocalRepositories();
@@ -57,7 +57,7 @@ const AddPublicationForm: FC = () => {
         const payload = getPublicationPayload(values);
         await createPublication(payload);
 
-        closePanel();
+        closeSidePanel();
 
         notify.success({
           title: "Publication created",
@@ -79,6 +79,7 @@ const AddPublicationForm: FC = () => {
         sourceType: SOURCE_TYPE_MIRROR,
         distribution: mirror.distribution,
         architectures: mirror.architectures ?? [],
+        preserveSignatures: mirror.preserveSignatures,
       })),
     [mirrors],
   );
@@ -140,17 +141,12 @@ const AddPublicationForm: FC = () => {
     [publicationTargets],
   );
 
-  const architectureOptions = useMemo(
-    () => [
-      {
-        label: "Select architecture",
-        value: "",
-      },
-      ...(selectedSource?.architectures ?? []).map((architecture) => ({
+  const architectureItems = useMemo(
+    () =>
+      (selectedSource?.architectures ?? []).map((architecture) => ({
         label: architecture,
         value: architecture,
       })),
-    ],
     [selectedSource],
   );
 
@@ -160,15 +156,8 @@ const AddPublicationForm: FC = () => {
     await formik.setFieldValue("source_type", event.target.value);
     await formik.setFieldValue("source", "");
     await formik.setFieldValue("uploader_distribution", "");
-    await formik.setFieldValue("uploader_architectures", "");
-    await formik.setFieldValue(
-      "preserve_mirror_signing_key",
-      INITIAL_VALUES.preserve_mirror_signing_key,
-    );
-    await formik.setFieldValue(
-      "mirror_signing_key",
-      INITIAL_VALUES.mirror_signing_key,
-    );
+    await formik.setFieldValue("uploader_architectures", []);
+    await formik.setFieldValue("signing_key", "");
   };
 
   const handleSourceChange = async (
@@ -184,25 +173,29 @@ const AddPublicationForm: FC = () => {
     );
 
     if (source?.sourceType === SOURCE_TYPE_LOCAL_REPOSITORY) {
-      await formik.setFieldValue("uploader_architectures", "");
+      await formik.setFieldValue("uploader_architectures", []);
+      await formik.setFieldValue("signing_key", "");
 
       return;
     }
+    await formik.setFieldValue("uploader_architectures", []);
+    await formik.setFieldValue("signing_key", "");
+  };
 
-    await formik.setFieldValue("uploader_architectures", "");
+  const handleArchitectureChange = async (
+    items: MultiSelectItem[],
+  ): Promise<void> => {
+    await formik.setFieldTouched("uploader_architectures", true);
+    await formik.setFieldValue(
+      "uploader_architectures",
+      items.map(({ value }) => String(value)),
+    );
   };
 
   return (
     <Form noValidate onSubmit={formik.handleSubmit}>
       <Blocks>
-        <Blocks.Item
-          title="Details"
-          titleClassName={classNames(
-            "p-text--small-caps",
-            classes.sectionTitle,
-          )}
-          containerClassName={classes.section}
-        >
+        <Blocks.Item title="Details">
           <Input
             type="text"
             label="Publication name"
@@ -245,64 +238,54 @@ const AddPublicationForm: FC = () => {
             error={getFormikError(formik, "prefix")}
             {...formik.getFieldProps("prefix")}
           />
-
-          {!isLocalSourceType && (
-            <>
-              <span>Signing GPG key</span>
-              <Input
-                type="checkbox"
-                label="Preserve mirror signing key"
-                checked={formik.values.preserve_mirror_signing_key}
-                {...formik.getFieldProps("preserve_mirror_signing_key")}
-              />
-            </>
-          )}
-
-          <Textarea
-            label="Signing GPG key"
-            labelClassName={!isLocalSourceType ? "u-off-screen" : undefined}
-            rows={4}
-            disabled={formik.values.preserve_mirror_signing_key}
-            error={getFormikError(formik, "mirror_signing_key")}
-            {...formik.getFieldProps("mirror_signing_key")}
-          />
         </Blocks.Item>
 
-        <Blocks.Item
-          title="Uploaders"
-          titleClassName={classNames(
-            "p-text--small-caps",
-            classes.sectionTitle,
+        <Blocks.Item title="Contents">
+          {isLocalSourceType || selectedSource?.preserveSignatures ? (
+            <ReadOnlyField
+              label="Distribution"
+              required
+              value={formik.values.uploader_distribution}
+              tooltipMessage="The distribution is derived from the selected source."
+            />
+          ) : (
+            <Input
+              type="text"
+              label="Distribution"
+              required
+              error={getFormikError(formik, "uploader_distribution")}
+              {...formik.getFieldProps("uploader_distribution")}
+            />
           )}
-          containerClassName={classes.section}
-        >
-          <ReadOnlyField
-            label="Distribution"
-            required
-            value={formik.values.uploader_distribution}
-            tooltipMessage="The distribution is derived from the selected source."
-          />
 
           {!isLocalSourceType && (
-            <Select
+            <MultiSelectField
+              variant="condensed"
+              hasSelectedItemsFirst={false}
               label="Architectures"
               required
               disabled={!formik.values.source}
-              options={architectureOptions}
+              items={architectureItems}
+              selectedItems={architectureItems.filter(({ value }) =>
+                formik.values.uploader_architectures.includes(value),
+              )}
+              onItemsUpdate={handleArchitectureChange}
               error={getFormikError(formik, "uploader_architectures")}
-              {...formik.getFieldProps("uploader_architectures")}
             />
           )}
         </Blocks.Item>
 
-        <Blocks.Item
-          title="Settings"
-          titleClassName={classNames(
-            classes.sectionTitle,
-            "p-text--small-caps",
+        {selectedSource?.sourceType === SOURCE_TYPE_MIRROR &&
+          selectedSource.preserveSignatures === false && (
+            <Blocks.Item title="Signing GPG Key">
+              <Textarea
+                {...formik.getFieldProps("signing_key")}
+                error={getFormikError(formik, "signing_key")}
+              />
+            </Blocks.Item>
           )}
-          containerClassName={classes.section}
-        >
+
+        <Blocks.Item title="Settings">
           <Input
             type="checkbox"
             label={
@@ -383,7 +366,7 @@ const AddPublicationForm: FC = () => {
       <SidePanelFormButtons
         submitButtonDisabled={formik.isSubmitting || isCreatingPublication}
         submitButtonText="Add publication"
-        onCancel={closePanel}
+        onCancel={closeSidePanel}
       />
     </Form>
   );

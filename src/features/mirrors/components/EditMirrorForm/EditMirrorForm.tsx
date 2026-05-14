@@ -14,9 +14,9 @@ import {
   Icon,
   ICONS,
   Input,
-  Textarea,
   Tooltip,
 } from "@canonical/react-components";
+import GpgKeyField from "@/components/form/GpgKeyField";
 import { getFormikError } from "@/utils/formikErrors";
 import { getSourceType } from "../MirrorDetails/helpers";
 import {
@@ -27,24 +27,28 @@ import {
 import ReadOnlyField from "@/components/form/ReadOnlyField";
 import * as Yup from "yup";
 import { NO_DATA_TEXT } from "@/components/layout/NoData";
+import classes from "./EditMirrorForm.module.scss";
+import MirrorFilterHelpButton from "../MirrorFilterHelpButton";
 
 const EditMirrorForm: FC = () => {
   const debug = useDebug();
   const { notify } = useNotify();
-  const { name, popSidePath, createPageParamsSetter } = usePageParams();
+  const { name, popSidePathUntilClear, closeSidePanel } = usePageParams();
 
   const mirror = useGetMirror(name).data.data;
   const updateMirror = useUpdateMirror(name).mutateAsync;
 
-  const close = createPageParamsSetter({ sidePath: [], name: "" });
-
   const formik = useFormik<FormProps>({
     initialValues: {
       name: mirror.displayName,
+      preserveSignatures: !!mirror.preserveSignatures,
       downloadUdebPackages: !!mirror.downloadUdebs,
       downloadSources: !!mirror.downloadSources,
       downloadInstallerFiles: !!mirror.downloadInstaller,
       verificationGpgKey: mirror.gpgKey?.armor,
+      packageFilter: mirror.filter,
+      includeDependencies: mirror.filterWithDeps,
+      keepCurrentGpgKey: !!mirror.gpgKey,
     },
 
     validationSchema: Yup.object().shape({
@@ -57,13 +61,22 @@ const EditMirrorForm: FC = () => {
           displayName: values.name,
           archiveRoot: mirror.archiveRoot,
           components: mirror.components,
+          preserveSignatures: values.preserveSignatures,
           downloadUdebs: values.downloadUdebPackages,
           downloadSources: values.downloadSources,
           downloadInstaller: values.downloadInstallerFiles,
-          gpgKey: { armor: values.verificationGpgKey || null },
+          ...(!values.keepCurrentGpgKey && {
+            gpgKey: values.verificationGpgKey
+              ? { armor: values.verificationGpgKey }
+              : null,
+          }),
+          filter: values.packageFilter,
+          filterWithDeps: values.packageFilter
+            ? values.includeDependencies
+            : undefined,
         });
 
-        close();
+        closeSidePanel();
 
         notify.success({
           title: `You have successfully edited ${mirror.displayName}.`,
@@ -81,7 +94,7 @@ const EditMirrorForm: FC = () => {
       <SidePanel.Content>
         <Form onSubmit={formik.handleSubmit} noValidate>
           <Blocks>
-            <Blocks.Item title="Details" titleClassName="p-text--small-caps">
+            <Blocks.Item title="Details">
               <Input
                 type="text"
                 label="Name"
@@ -99,11 +112,21 @@ const EditMirrorForm: FC = () => {
                 value={mirror.archiveRoot}
                 tooltipMessage="You can’t change the source URL after the mirror is created."
               />
+              <CheckboxInput
+                label="Preserve upstream signing key"
+                {...formik.getFieldProps("preserveSignatures")}
+                checked={formik.values.preserveSignatures}
+                disabled
+                inline
+              />{" "}
+              <Tooltip
+                position="right"
+                message="Signature-preserving mirrors directly copy the packages from the source to their destination without signing or syncing the packages."
+              >
+                <Icon name={ICONS.help} />
+              </Tooltip>
             </Blocks.Item>
-            <Blocks.Item
-              title="Mirror contents"
-              titleClassName="p-text--small-caps"
-            >
+            <Blocks.Item title="Mirror contents">
               <ReadOnlyField
                 label="Distribution"
                 value={mirror.distribution || NO_DATA_TEXT}
@@ -119,7 +142,32 @@ const EditMirrorForm: FC = () => {
                 value={mirror.architectures?.join(", ") || NO_DATA_TEXT}
                 tooltipMessage="You can’t change the architectures after the mirror is created."
               />
-              <p>Download options:</p>
+              <div className={classes.wrapper}>
+                <div className={classes.formContainer}>
+                  <Input
+                    type="text"
+                    label="Filter"
+                    {...formik.getFieldProps("packageFilter")}
+                    disabled={formik.values.preserveSignatures}
+                    help="The filter limits what packages are mirrored."
+                  />
+                </div>
+                <MirrorFilterHelpButton />
+              </div>
+              <CheckboxInput
+                label="Include dependencies in filter"
+                {...formik.getFieldProps("includeDependencies")}
+                checked={
+                  !!formik.values.packageFilter &&
+                  formik.values.includeDependencies
+                }
+                disabled={
+                  !formik.values.packageFilter ||
+                  formik.values.preserveSignatures
+                }
+                inline
+              />
+              <p className={classes.heading}>Download options:</p>
               <CheckboxInput
                 label="Download .udeb packages "
                 {...formik.getFieldProps("downloadUdebPackages")}
@@ -147,14 +195,22 @@ const EditMirrorForm: FC = () => {
                 UBUNTU_SNAPSHOTS_HOST,
                 UBUNTU_PRO_HOST,
               ].includes(new URL(mirror.archiveRoot).host) && (
-                <Blocks.Item
-                  title="Authentication"
-                  titleClassName="p-text--small-caps"
-                >
-                  <Textarea
-                    label="Verification GPG key"
-                    {...formik.getFieldProps("verificationGpgKey")}
-                    error={getFormikError(formik, "verificationGpgKey")}
+                <Blocks.Item title="Authentication">
+                  <GpgKeyField
+                    existingKey={mirror.gpgKey}
+                    keepCurrentKey={formik.values.keepCurrentGpgKey}
+                    gpgKeyValue={formik.values.verificationGpgKey}
+                    gpgKeyError={getFormikError(formik, "verificationGpgKey")}
+                    textareaLabel="Verification GPG key"
+                    onKeepCurrentChange={(checked) =>
+                      formik.setFieldValue("keepCurrentGpgKey", checked)
+                    }
+                    onGpgKeyChange={(value) =>
+                      formik.setFieldValue("verificationGpgKey", value)
+                    }
+                    onGpgKeyBlur={() =>
+                      formik.setFieldTouched("verificationGpgKey", true)
+                    }
                   />
                 </Blocks.Item>
               )}
@@ -163,7 +219,7 @@ const EditMirrorForm: FC = () => {
           <SidePanelFormButtons
             submitButtonLoading={formik.isSubmitting}
             submitButtonText="Save changes"
-            onCancel={popSidePath}
+            onCancel={popSidePathUntilClear}
           />
         </Form>
       </SidePanel.Content>

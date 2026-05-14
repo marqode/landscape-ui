@@ -13,21 +13,20 @@ import {
   useGetPublicationTargets,
 } from "@/features/publication-targets";
 import { lazy, type FC } from "react";
+import LoadingState from "@/components/layout/LoadingState";
 
-const AddPublicationTargetForm = lazy(async () =>
-  import("@/features/publication-targets").then((module) => ({
-    default: module.AddPublicationTargetForm,
-  })),
+const AddPublicationTargetForm = lazy(
+  async () =>
+    import("@/features/publication-targets/components/AddPublicationTargetForm"),
 );
 
-const EditTargetForm = lazy(async () =>
-  import("@/features/publication-targets").then((module) => ({
-    default: module.EditTargetForm,
-  })),
+const EditTargetForm = lazy(
+  async () =>
+    import("@/features/publication-targets/components/EditTargetForm"),
 );
 
 const PublicationTargetsPage: FC = () => {
-  const { lastSidePathSegment, name, popSidePath } = usePageParams();
+  const { lastSidePathSegment, name, popSidePathUntilClear } = usePageParams();
   const { publicationTargets, count, isGettingPublicationTargets } =
     useGetPublicationTargets();
 
@@ -38,7 +37,7 @@ const PublicationTargetsPage: FC = () => {
       <PageMain>
         <PageHeader title="Publication targets" />
         <PageContent>
-          <div>Loading publication targets...</div>
+          <LoadingState />
         </PageContent>
       </PageMain>
     );
@@ -93,8 +92,7 @@ const PublicationTargetsPage: FC = () => {
       <PageContent hasTable={hasTable}>{children}</PageContent>
 
       <SidePanel
-        // onClose={createPageParamsSetter({ sidePath: [], name: "" })}
-        onClose={popSidePath}
+        onClose={popSidePathUntilClear}
         isOpen={
           lastSidePathSegment === "add" ||
           (!!lastSidePathSegment && !!viewTarget)
@@ -104,14 +102,18 @@ const PublicationTargetsPage: FC = () => {
         {lastSidePathSegment === "add" && (
           <SidePanel.Suspense key="add">
             <SidePanel.Header>Add publication target</SidePanel.Header>
-            <AddPublicationTargetForm />
+            <SidePanel.Content>
+              <AddPublicationTargetForm />
+            </SidePanel.Content>
           </SidePanel.Suspense>
         )}
 
         {lastSidePathSegment === "view" && viewTarget && (
           <SidePanel.Suspense key="view">
             <SidePanel.Header>{viewTarget.displayName}</SidePanel.Header>
-            <TargetDetails target={viewTarget} />
+            <SidePanel.Content>
+              <TargetDetails target={viewTarget} />
+            </SidePanel.Content>
           </SidePanel.Suspense>
         )}
 
@@ -120,7 +122,9 @@ const PublicationTargetsPage: FC = () => {
             <SidePanel.Header>
               Edit {viewTarget.displayName ?? viewTarget.name}
             </SidePanel.Header>
-            <EditTargetForm target={viewTarget} />
+            <SidePanel.Content>
+              <EditTargetForm target={viewTarget} />
+            </SidePanel.Content>
           </SidePanel.Suspense>
         )}
       </SidePanel>

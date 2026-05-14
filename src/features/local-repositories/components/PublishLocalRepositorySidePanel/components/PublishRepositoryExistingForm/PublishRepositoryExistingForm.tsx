@@ -35,20 +35,15 @@ const PublishRepositoryExistingForm: FC<PublishRepositoryExistingFormProps> = ({
 }) => {
   const debug = useDebug();
   const { notify } = useNotify();
-  const { popSidePath, createPageParamsSetter } = usePageParams();
+  const { popSidePathUntilClear, closeSidePanel } = usePageParams();
   const { publishPublication, isPublishingPublication } =
     usePublishPublication();
-
-  const closeSidePanel = createPageParamsSetter({
-    sidePath: [],
-    name: "",
-  });
 
   const handleSubmit = async (values: { name: string }) => {
     try {
       await publishPublication({
         publicationName: values.name,
-        body: { forceOverwrite: true, forceCleanup: true },
+        body: { forceOverwrite: true },
       });
 
       closeSidePanel();
@@ -86,7 +81,7 @@ const PublishRepositoryExistingForm: FC<PublishRepositoryExistingFormProps> = ({
 
   return (
     <Form onSubmit={formik.handleSubmit} noValidate>
-      <Blocks dense>
+      <Blocks>
         <Blocks.Item title="Details">
           <Select
             label="Publication name"
@@ -194,7 +189,7 @@ const PublishRepositoryExistingForm: FC<PublishRepositoryExistingFormProps> = ({
       <SidePanelFormButtons
         submitButtonLoading={formik.isSubmitting || isPublishingPublication}
         submitButtonText="Publish repository"
-        onCancel={popSidePath}
+        onCancel={popSidePathUntilClear}
       />
     </Form>
   );

@@ -63,7 +63,6 @@ const RepositoryProfileEditForm: FC = () => {
             profile={profile}
             aptSources={aptSources}
             onAptSourcesChange={setAptSources}
-            onClose={popSidePath}
             onAddSourceClick={createSidePathPusher("add-source")}
             onEditSourceClick={(source) => {
               setSourceToEdit(source);
@@ -78,7 +77,7 @@ const RepositoryProfileEditForm: FC = () => {
                 ? {
                     name: sourceToEdit.name,
                     deb_line: sourceToEdit.line,
-                    gpg_key_name: sourceToEdit.gpg_key ?? "",
+                    gpg_key_name: sourceToEdit.gpg_key?.name ?? "",
                   }
                 : undefined
             }

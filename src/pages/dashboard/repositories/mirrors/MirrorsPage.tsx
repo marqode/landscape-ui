@@ -11,28 +11,20 @@ import usePageParams from "@/hooks/usePageParams";
 import { Button, Icon, ICONS } from "@canonical/react-components";
 import { lazy, type FC } from "react";
 
-const EditMirrorForm = lazy(async () =>
-  import("@/features/mirrors").then((module) => ({
-    default: module.EditMirrorForm,
-  })),
+const EditMirrorForm = lazy(
+  async () => import("@/features/mirrors/components/EditMirrorForm"),
 );
 
-const AddMirrorForm = lazy(async () =>
-  import("@/features/mirrors").then((module) => ({
-    default: module.AddMirrorForm,
-  })),
+const AddMirrorForm = lazy(
+  async () => import("@/features/mirrors/components/AddMirrorForm"),
 );
 
-const MirrorDetails = lazy(async () =>
-  import("@/features/mirrors").then((module) => ({
-    default: module.MirrorDetails,
-  })),
+const MirrorDetails = lazy(
+  async () => import("@/features/mirrors/components/MirrorDetails"),
 );
 
-const PublishMirrorForm = lazy(async () =>
-  import("@/features/mirrors").then((module) => ({
-    default: module.PublishMirrorForm,
-  })),
+const PublishMirrorForm = lazy(
+  async () => import("@/features/mirrors/components/PublishMirrorForm"),
 );
 
 const MirrorsPage: FC = () => {
@@ -40,7 +32,7 @@ const MirrorsPage: FC = () => {
     search,
     sidePath,
     lastSidePathSegment,
-    popSidePath,
+    popSidePathUntilClear,
     createPageParamsSetter,
   } = usePageParams();
 
@@ -99,7 +91,7 @@ const MirrorsPage: FC = () => {
     <PageMain>
       <PageHeader title="Mirrors" actions={actions} />
       <PageContent hasTable={hasTable}>{children}</PageContent>
-      <SidePanel onClose={popSidePath} isOpen={!!sidePath.length}>
+      <SidePanel onClose={popSidePathUntilClear} isOpen={!!sidePath.length}>
         {lastSidePathSegment === "add" && (
           <SidePanel.Suspense key="add">
             <AddMirrorForm />

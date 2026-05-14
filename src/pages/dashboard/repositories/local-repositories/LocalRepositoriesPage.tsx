@@ -12,38 +12,33 @@ import usePageParams from "@/hooks/usePageParams";
 import type { FC } from "react";
 import { lazy } from "react";
 
-const AddLocalRepositorySidePanel = lazy(async () =>
-  import("@/features/local-repositories").then((module) => ({
-    default: module.AddLocalRepositorySidePanel,
-  })),
+const AddLocalRepositorySidePanel = lazy(
+  async () =>
+    import("@/features/local-repositories/components/AddLocalRepositorySidePanel"),
 );
 
-const ViewLocalRepositorySidePanel = lazy(async () =>
-  import("@/features/local-repositories").then((module) => ({
-    default: module.ViewLocalRepositorySidePanel,
-  })),
+const ViewLocalRepositorySidePanel = lazy(
+  async () =>
+    import("@/features/local-repositories/components/ViewLocalRepositorySidePanel"),
 );
 
-const EditLocalRepositorySidePanel = lazy(async () =>
-  import("@/features/local-repositories").then((module) => ({
-    default: module.EditLocalRepositorySidePanel,
-  })),
+const EditLocalRepositorySidePanel = lazy(
+  async () =>
+    import("@/features/local-repositories/components/EditLocalRepositorySidePanel"),
 );
 
-const ImportRepositoryPackagesSidePanel = lazy(async () =>
-  import("@/features/local-repositories").then((module) => ({
-    default: module.ImportRepositoryPackagesSidePanel,
-  })),
+const ImportRepositoryPackagesSidePanel = lazy(
+  async () =>
+    import("@/features/local-repositories/components/ImportRepositoryPackagesSidePanel"),
 );
 
-const PublishLocalRepositorySidePanel = lazy(async () =>
-  import("@/features/local-repositories").then((module) => ({
-    default: module.PublishLocalRepositorySidePanel,
-  })),
+const PublishLocalRepositorySidePanel = lazy(
+  async () =>
+    import("@/features/local-repositories/components/PublishLocalRepositorySidePanel"),
 );
 
 const LocalRepositoriesPage: FC = () => {
-  const { search, lastSidePathSegment, sidePath, popSidePath } =
+  const { search, lastSidePathSegment, sidePath, popSidePathUntilClear } =
     usePageParams();
 
   const { repositories, isGettingRepositories } =
@@ -74,7 +69,7 @@ const LocalRepositoriesPage: FC = () => {
         />
       </PageContent>
 
-      <SidePanel onClose={popSidePath} isOpen={!!sidePath.length}>
+      <SidePanel onClose={popSidePathUntilClear} isOpen={!!sidePath.length}>
         {lastSidePathSegment === "add" && (
           <SidePanel.Suspense key="add">
             <AddLocalRepositorySidePanel />

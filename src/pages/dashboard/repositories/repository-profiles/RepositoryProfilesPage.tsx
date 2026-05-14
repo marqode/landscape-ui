@@ -12,27 +12,25 @@ import usePageParams from "@/hooks/usePageParams";
 import useSetDynamicFilterValidation from "@/hooks/useDynamicFilterValidation";
 import { lazy, type FC } from "react";
 
-const RepositoryProfileAddSidePanel = lazy(async () =>
-  import("@/features/repository-profiles").then((module) => ({
-    default: module.RepositoryProfileAddSidePanel,
-  })),
+const RepositoryProfileAddSidePanel = lazy(
+  async () =>
+    import("@/features/repository-profiles/components/RepositoryProfileAddSidePanel"),
 );
 
-const RepositoryProfileDetails = lazy(async () =>
-  import("@/features/repository-profiles").then((module) => ({
-    default: module.RepositoryProfileDetails,
-  })),
+const RepositoryProfileDetails = lazy(
+  async () =>
+    import("@/features/repository-profiles/components/RepositoryProfileDetails"),
 );
 
-const RepositoryProfileEditForm = lazy(async () =>
-  import("@/features/repository-profiles").then((module) => ({
-    default: module.RepositoryProfileEditForm,
-  })),
+const RepositoryProfileEditForm = lazy(
+  async () =>
+    import("@/features/repository-profiles/components/RepositoryProfileEditForm"),
 );
 
 const RepositoryProfilesPage: FC = () => {
   const { getRepositoryProfilesQuery } = useRepositoryProfiles();
-  const { sidePath, lastSidePathSegment, popSidePath } = usePageParams();
+  const { sidePath, lastSidePathSegment, popSidePathUntilClear } =
+    usePageParams();
 
   useSetDynamicFilterValidation("sidePath", [
     "add",
@@ -67,7 +65,7 @@ const RepositoryProfilesPage: FC = () => {
           }
         />
       </PageContent>
-      <SidePanel onClose={popSidePath} isOpen={!!sidePath.length}>
+      <SidePanel onClose={popSidePathUntilClear} isOpen={!!sidePath.length}>
         {sidePath.includes("add") && (
           <SidePanel.Suspense key="add">
             <RepositoryProfileAddSidePanel />

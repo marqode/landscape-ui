@@ -24,6 +24,7 @@ import PublishMirrorContentsBlock from "../PublishMirrorContentsBlock";
 import type { Mirror, PublicationTarget } from "@canonical/landscape-openapi";
 import type { SelectOption } from "@/types/SelectOption";
 import * as Yup from "yup";
+import ReadOnlyField from "@/components/form/ReadOnlyField";
 
 interface PublishMirrorNewFormProps {
   readonly mirror: Mirror;
@@ -36,16 +37,11 @@ const PublishMirrorNewForm: FC<PublishMirrorNewFormProps> = ({
 }) => {
   const debug = useDebug();
   const { notify } = useNotify();
-  const { popSidePath, createPageParamsSetter } = usePageParams();
+  const { popSidePathUntilClear, closeSidePanel } = usePageParams();
 
   const { createPublication, isCreatingPublication } = useCreatePublication();
   const { publishPublication, isPublishingPublication } =
     usePublishPublication();
-
-  const close = createPageParamsSetter({
-    sidePath: [],
-    name: "",
-  });
 
   const formik = useFormik({
     initialValues: {
@@ -82,10 +78,10 @@ const PublishMirrorNewForm: FC<PublishMirrorNewFormProps> = ({
 
         await publishPublication({
           publicationName: publication.name ?? "",
-          body: { forceCleanup: true, forceOverwrite: true },
+          body: { forceOverwrite: true },
         });
 
-        close();
+        closeSidePanel();
 
         notify.success({
           title: `You have marked ${mirror.displayName} to be published.`,
@@ -137,13 +133,21 @@ const PublishMirrorNewForm: FC<PublishMirrorNewFormProps> = ({
             {...formik.getFieldProps("publicationTarget")}
           />
 
-          <Textarea
-            label="Signing GPG key"
-            rows={4}
-            error={getFormikError(formik, "signingKey")}
-            {...formik.getFieldProps("signingKey")}
-            className="u-no-margin--bottom"
-          />
+          {mirror.preserveSignatures ? (
+            <ReadOnlyField
+              label="Signing GPG key"
+              value=""
+              tooltipMessage="This mirror is preserving the upstream signing key"
+            />
+          ) : (
+            <Textarea
+              label="Signing GPG key"
+              rows={4}
+              error={getFormikError(formik, "signingKey")}
+              {...formik.getFieldProps("signingKey")}
+              className="u-no-margin--bottom"
+            />
+          )}
         </Blocks.Item>
 
         <PublishMirrorContentsBlock mirror={mirror} />
@@ -233,7 +237,7 @@ const PublishMirrorNewForm: FC<PublishMirrorNewFormProps> = ({
           isPublishingPublication
         }
         submitButtonText="Publish mirror"
-        onCancel={popSidePath}
+        onCancel={popSidePathUntilClear}
       />
     </Form>
   );

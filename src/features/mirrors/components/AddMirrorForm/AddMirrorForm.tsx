@@ -30,16 +30,17 @@ import { UBUNTU_SNAPSHOTS_HOST } from "../../constants";
 import ReadOnlyField from "@/components/form/ReadOnlyField";
 import { isArchiveInfoValid } from "../../helpers";
 import * as Yup from "yup";
+import classes from "./AddMirrorForm.module.scss";
+import MirrorFilterHelpButton from "../MirrorFilterHelpButton";
 
 const AddMirrorForm: FC = () => {
   const debug = useDebug();
   const { notify } = useNotify();
-  const { createPageParamsSetter } = usePageParams();
+  const { closeSidePanel } = usePageParams();
 
   const ubuntuArchiveQuery = useGetUbuntuArchiveInfo();
   const ubuntuEsmQuery = useGetUbuntuEsmInfo();
   const createMirror = useCreateMirror().mutateAsync;
-  const close = createPageParamsSetter({ sidePath: [] });
 
   const ubuntuArchiveInfo = ubuntuArchiveQuery.data?.data;
   const ubuntuEsmInfo = ubuntuEsmQuery.data?.data.results ?? [];
@@ -100,9 +101,14 @@ const AddMirrorForm: FC = () => {
             architecture.trim(),
           ),
           distribution: values.distribution,
+          preserveSignatures: values.preserveSignatures,
           downloadInstaller: values.downloadInstallerFiles,
           downloadSources: values.downloadSources,
           downloadUdebs: values.downloadUdebPackages,
+          filter: values.packageFilter,
+          filterWithDeps: values.packageFilter
+            ? values.includeDependencies
+            : undefined,
           gpgKey: values.verificationGpgKey
             ? {
                 armor: values.verificationGpgKey,
@@ -110,7 +116,7 @@ const AddMirrorForm: FC = () => {
             : undefined,
         });
 
-        close();
+        closeSidePanel();
 
         notify.success({
           title: `You have successfully added ${values.name}.`,
@@ -127,6 +133,14 @@ const AddMirrorForm: FC = () => {
     value: proService.mirror_type,
     disabled: !isArchiveInfoValid(proService),
   }));
+
+  useEffect(() => {
+    if (formik.values.preserveSignatures) {
+      void formik.setFieldValue("packageFilter", "");
+      void formik.setFieldValue("includeDependencies", false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formik.values.preserveSignatures]);
 
   // Once the archive/ESM info finishes loading, hydrate the data-dependent
   // fields (distribution, components, architectures, pro service) for the
@@ -150,6 +164,7 @@ const AddMirrorForm: FC = () => {
         ubuntuEsmInfo,
       }),
       name: formik.values.name,
+      preserveSignatures: formik.values.preserveSignatures,
       downloadUdebPackages: formik.values.downloadUdebPackages,
       downloadInstallerFiles: formik.values.downloadInstallerFiles,
       downloadSources: formik.values.downloadSources,
@@ -170,7 +185,7 @@ const AddMirrorForm: FC = () => {
       <SidePanel.Content>
         <Form onSubmit={formik.handleSubmit} noValidate>
           <Blocks>
-            <Blocks.Item title="Details" titleClassName="p-text--small-caps">
+            <Blocks.Item title="Details">
               <Input
                 type="text"
                 label="Name"
@@ -214,6 +229,7 @@ const AddMirrorForm: FC = () => {
                       ubuntuEsmInfo,
                     }),
                     name: formik.values.name,
+                    preserveSignatures: formik.values.preserveSignatures,
                     downloadUdebPackages: formik.values.downloadUdebPackages,
                     downloadInstallerFiles:
                       formik.values.downloadInstallerFiles,
@@ -252,10 +268,21 @@ const AddMirrorForm: FC = () => {
                   tooltipMessage="The source URL is set automatically by the source type."
                 />
               )}
+              <CheckboxInput
+                label="Preserve upstream signing key"
+                {...formik.getFieldProps("preserveSignatures")}
+                checked={formik.values.preserveSignatures}
+                inline
+              />{" "}
+              <Tooltip
+                position="right"
+                message="Signature-preserving mirrors directly copy the packages from the source to their destination without signing or syncing the packages."
+              >
+                <Icon name={ICONS.help} />
+              </Tooltip>
             </Blocks.Item>
             <Blocks.Item
               title="Mirror contents"
-              titleClassName="p-text--small-caps"
               description={
                 isMirrorContentsLoading &&
                 formik.values.sourceType !== "third-party"
@@ -344,7 +371,32 @@ const AddMirrorForm: FC = () => {
                   isLoading={isMirrorContentsLoading}
                 />
               )}
-              <p>Download options:</p>
+              <div className={classes.wrapper}>
+                <div className={classes.formContainer}>
+                  <Input
+                    type="text"
+                    label="Filter"
+                    {...formik.getFieldProps("packageFilter")}
+                    disabled={formik.values.preserveSignatures}
+                    help="The filter limits what packages are mirrored."
+                  />
+                </div>
+                <MirrorFilterHelpButton />
+              </div>
+              <CheckboxInput
+                label="Include dependencies in filter"
+                {...formik.getFieldProps("includeDependencies")}
+                checked={
+                  !!formik.values.packageFilter &&
+                  formik.values.includeDependencies
+                }
+                disabled={
+                  !formik.values.packageFilter ||
+                  formik.values.preserveSignatures
+                }
+                inline
+              />
+              <p className={classes.heading}>Download options:</p>
               <CheckboxInput
                 label="Download .udeb packages "
                 {...formik.getFieldProps("downloadUdebPackages")}
@@ -381,7 +433,7 @@ const AddMirrorForm: FC = () => {
           <SidePanelFormButtons
             submitButtonLoading={formik.isSubmitting}
             submitButtonText="Add mirror"
-            onCancel={close}
+            onCancel={closeSidePanel}
           />
         </Form>
       </SidePanel.Content>

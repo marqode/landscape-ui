@@ -9,7 +9,6 @@ import RepublishPublicationModal from "../RepublishPublicationModal";
 import { getSourceType } from "../../helpers";
 import { DISPLAY_DATE_TIME_FORMAT } from "@/constants";
 import moment from "moment";
-import usePageParams from "@/hooks/usePageParams/usePageParams";
 import { NO_DATA_TEXT } from "@/components/layout/NoData/constants";
 
 interface PublicationDetailsProps {
@@ -23,9 +22,6 @@ const PublicationDetails = ({
   sourceDisplayName,
   publicationTargetDisplayName,
 }: PublicationDetailsProps) => {
-  const { createPageParamsSetter } = usePageParams();
-  const closePanel = createPageParamsSetter({ sidePath: [], name: "" });
-
   const {
     value: isRemoveModalOpen,
     setTrue: openRemoveModal,
@@ -72,7 +68,7 @@ const PublicationDetails = ({
       </div>
 
       <Blocks>
-        <Blocks.Item title="Details" titleClassName="p-text--small-caps">
+        <Blocks.Item title="Details">
           <InfoGrid dense>
             <InfoGrid.Item label="Name" large value={publication.displayName} />
 
@@ -98,10 +94,17 @@ const PublicationDetails = ({
                   : NO_DATA_TEXT
               }
             />
+
+            {publication.gpgKey && (
+              <InfoGrid.Item
+                label="Signing GPG Key"
+                value={publication.gpgKey.fingerprint}
+              />
+            )}
           </InfoGrid>
         </Blocks.Item>
 
-        <Blocks.Item title="contents" titleClassName="p-text--small-caps">
+        <Blocks.Item title="Contents">
           <InfoGrid>
             <InfoGrid.Item
               label="Architectures"
@@ -111,7 +114,7 @@ const PublicationDetails = ({
           </InfoGrid>
         </Blocks.Item>
 
-        <Blocks.Item title="Settings" titleClassName="p-text--small-caps">
+        <Blocks.Item title="Settings">
           <InfoGrid>
             <InfoGrid.Item
               label="Hash indexing"
@@ -148,19 +151,13 @@ const PublicationDetails = ({
 
       <RepublishPublicationModal
         isOpen={isRepublishModalOpen}
-        close={() => {
-          closeRepublishModal();
-          closePanel();
-        }}
+        close={closeRepublishModal}
         publication={publication}
       />
 
       <RemovePublicationModal
         isOpen={isRemoveModalOpen}
-        close={() => {
-          closeRemoveModal();
-          closePanel();
-        }}
+        close={closeRemoveModal}
         publication={publication}
       />
     </>

@@ -18,13 +18,8 @@ import Blocks from "@/components/layout/Blocks";
 const AddLocalRepositorySidePanel: FC = () => {
   const debug = useDebug();
   const { notify } = useNotify();
-  const { createPageParamsSetter } = usePageParams();
+  const { closeSidePanel } = usePageParams();
   const { createRepository, isCreatingRepository } = useCreateLocalRepository();
-
-  const closeSidePanel = createPageParamsSetter({
-    sidePath: [],
-    name: "",
-  });
 
   const handleSubmit = async (values: AddLocalRepositoryFormValues) => {
     const valuesforCreation = {
@@ -62,7 +57,7 @@ const AddLocalRepositorySidePanel: FC = () => {
       <SidePanel.Content>
         <Form onSubmit={formik.handleSubmit} noValidate>
           <Blocks>
-            <Blocks.Item title="Details" titleClassName="p-text--small-caps">
+            <Blocks.Item title="Details">
               <Input
                 type="text"
                 label="Name"
