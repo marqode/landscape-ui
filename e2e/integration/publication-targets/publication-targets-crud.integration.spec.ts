@@ -232,10 +232,7 @@ test.describe("publication targets CRUD (real debarchive)", () => {
     // Submit.
     await page.locator("aside").getByRole("button", { name: /save changes/i }).click();
 
-    // Wait for the side panel to close.
-    await expect(
-      page.getByRole("heading", { name: new RegExp(`Edit ${targetDisplayName}`, "i") }),
-    ).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.locator("aside")).not.toBeVisible({ timeout: 15_000 });
 
     // The updated name should appear in the table.
     await expect(
