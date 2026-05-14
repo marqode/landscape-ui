@@ -226,8 +226,8 @@ test.describe("publication targets CRUD (real debarchive)", () => {
     // Update the display name.
     // Use name attribute to disambiguate from other /name/i fields in the form.
     const nameInput = page.locator('[name="displayName"]');
-    await nameInput.clear();
     await nameInput.fill(updatedDisplayName);
+    await expect(nameInput).toHaveValue(updatedDisplayName);
 
     // Submit.
     await page.locator("aside").getByRole("button", { name: /save changes/i }).click();
