@@ -67,6 +67,15 @@ interface DebarchiveMirrorList {
   [key: string]: unknown;
 }
 
+/** Suppress the first-run welcome modal that otherwise intercepts page clicks. */
+async function dismissWelcomePopup(
+  page: import("@playwright/test").Page,
+): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("_landscape_isWelcomePopupClosed", "true");
+  });
+}
+
 /** Fetch the landscape v2 JWT for authenticated API calls. */
 async function getAuthToken(
   request: import("@playwright/test").APIRequestContext,
@@ -114,6 +123,7 @@ test.describe("mirrors CRUD (real debarchive)", () => {
   });
 
   test("creates a new mirror via the UI", async ({ page }) => {
+    await dismissWelcomePopup(page);
     const uniqueDisplayName = `CI Test Mirror ${Date.now()}`;
     mirrorDisplayName = uniqueDisplayName;
 
@@ -163,6 +173,7 @@ test.describe("mirrors CRUD (real debarchive)", () => {
   });
 
   test("edits the created mirror display name", async ({ page }) => {
+    await dismissWelcomePopup(page);
     const updatedDisplayName = "CI Test Mirror Updated";
 
     await page.goto("/repositories/mirrors");
@@ -208,6 +219,7 @@ test.describe("mirrors CRUD (real debarchive)", () => {
   });
 
   test("deletes the created mirror", async ({ page }) => {
+    await dismissWelcomePopup(page);
     await page.goto("/repositories/mirrors");
     await page.waitForLoadState("networkidle");
 

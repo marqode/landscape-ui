@@ -43,6 +43,15 @@ interface AuthUser {
   [key: string]: unknown;
 }
 
+/** Suppress the first-run welcome modal that otherwise intercepts page clicks. */
+async function dismissWelcomePopup(
+  page: import("@playwright/test").Page,
+): Promise<void> {
+  await page.addInitScript(() => {
+    window.localStorage.setItem("_landscape_isWelcomePopupClosed", "true");
+  });
+}
+
 /** Fetch the JWT for subsequent authenticated API calls. */
 async function getAuthToken(
   request: import("@playwright/test").APIRequestContext,
@@ -89,6 +98,7 @@ test.describe("scripts page (real backend)", () => {
   });
 
   test("page renders and shows Scripts heading", async ({ page }) => {
+    await dismissWelcomePopup(page);
     await page.goto("/scripts");
     await expect(page.getByRole("main")).toBeVisible();
     await page.waitForLoadState("networkidle");
@@ -102,6 +112,7 @@ test.describe("scripts page (real backend)", () => {
     page,
     request,
   }) => {
+    await dismissWelcomePopup(page);
     const scriptTitle = `ci-test-script-${Date.now()}`;
     const scriptCode = "#!/bin/bash\necho 'integration test'";
 
