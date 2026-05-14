@@ -116,7 +116,7 @@ async function cleanupMirror(
 
 // ─── tests ───────────────────────────────────────────────────────────────────
 
-test.describe("mirrors CRUD (real debarchive)", () => {
+test.describe.serial("mirrors CRUD (real debarchive)", () => {
   test.afterAll(async ({ request }) => {
     // Best-effort cleanup in case test 3 did not run.
     await cleanupMirror(request, mirrorName);
@@ -149,7 +149,7 @@ test.describe("mirrors CRUD (real debarchive)", () => {
     // Source type defaults to "Ubuntu archive" — leave it as-is.
     // Wait for the Mirror contents block to load (Distribution select populated).
     await expect(page.getByLabel("Distribution")).not.toBeDisabled({
-      timeout: 15_000,
+      timeout: 60_000,
     });
 
     // Distribution, components, and architectures auto-populate with defaults.

@@ -10,6 +10,8 @@ const API_URL = "http://localhost:9091/api/v2/";
 const API_TIMEOUT_MS = 5_000;
 const HTTP_SERVER_ERROR_MIN = 500;
 const ENV_FILE = ".env.integration.local";
+const ARCHIVE_WARM_TIMEOUT_MS = 90_000;
+const ARCHIVE_WARM_POLL_MS = 3_000;
 
 // Load local credentials file if present (gitignored). Values already in
 // process.env (e.g. from CI) take precedence because override is false.
@@ -79,23 +81,36 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
 
     // Warm the ubuntu-archive-info blob cache. On a fresh container the first
     // request triggers an outbound fetch to archive.ubuntu.com and
-    // esm.ubuntu.com which can take 10-30 s. Doing it here, before any test
-    // starts, prevents the AddMirrorForm's Distribution select from staying
-    // disabled past the 15 s assertion timeout.
+    // esm.ubuntu.com which can take 10-30 s. Poll until both endpoints return
+    // non-empty distribution lists before allowing tests to start, so the
+    // AddMirrorForm Distribution select is never still-loading when tests run.
     const meRes = await context.request.get(`${API_URL}me`);
     if (meRes.ok()) {
       const meBody = await meRes.json() as { token?: string };
       if (meBody.token) {
         const bearer = `Bearer ${meBody.token}`;
+        const deadline = Date.now() + ARCHIVE_WARM_TIMEOUT_MS;
+
+        const pollUntilReady = async (archiveType: string): Promise<void> => {
+          while (Date.now() < deadline) {
+            const res = await context.request.get(
+              `${API_URL}repository/ubuntu-archive-info`,
+              { params: { archive_type: archiveType }, headers: { Authorization: bearer } },
+            );
+            if (res.ok()) {
+              const body = await res.json() as { distributions?: unknown[] };
+              if (Array.isArray(body.distributions) && body.distributions.length > 0) {
+                return;
+              }
+            }
+            await new Promise((resolve) => setTimeout(resolve, ARCHIVE_WARM_POLL_MS));
+          }
+          console.warn(`[global-setup] archive-info (${archiveType}) did not return distributions within ${ARCHIVE_WARM_TIMEOUT_MS / 1000}s — tests may see a disabled Distribution select`);
+        };
+
         await Promise.all([
-          context.request.get(`${API_URL}repository/ubuntu-archive-info`, {
-            params: { archive_type: "archive" },
-            headers: { Authorization: bearer },
-          }),
-          context.request.get(`${API_URL}repository/ubuntu-archive-info`, {
-            params: { archive_type: "ESM" },
-            headers: { Authorization: bearer },
-          }),
+          pollUntilReady("archive"),
+          pollUntilReady("ESM"),
         ]);
       }
     }
