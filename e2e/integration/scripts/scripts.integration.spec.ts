@@ -73,7 +73,10 @@ async function redactScript(
   scriptId: number | string,
 ): Promise<void> {
   const res = await request.post(`/api/v2/scripts/${scriptId}:redact`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
   });
   // 404 is acceptable if the script was already removed.
   expect(
@@ -133,19 +136,9 @@ test.describe("scripts page (real backend)", () => {
     await page.keyboard.type(scriptCode);
 
     // ── 5. Submit the form ───────────────────────────────────────────────────
-    // The submit button inside the side panel has text "Add script".
-    await page
-      .locator("[data-testid='side-panel'], [role='dialog'], aside")
-      .first()
-      .getByRole("button", { name: /add script/i })
-      .click()
-      .catch(async () => {
-        // Fallback: find any visible "Add script" button that is not the header one.
-        const buttons = page.getByRole("button", { name: /add script/i });
-        const count = await buttons.count();
-        // Click the last one (the submit button inside the panel).
-        await buttons.nth(count - 1).click();
-      });
+    // The side panel renders as <aside>. Target the submit button inside it to
+    // avoid hitting the page-header "Add script" button with the same name.
+    await page.locator("aside").getByRole("button", { name: /add script/i }).click();
 
     // ── 6. Wait for the panel to close and the list to refresh ───────────────
     await page.waitForLoadState("networkidle");

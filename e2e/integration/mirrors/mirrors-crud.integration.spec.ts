@@ -172,6 +172,19 @@ test.describe("mirrors CRUD (real debarchive)", () => {
     ).toBeVisible({ timeout: 15_000 });
   });
 
+  test("captures the mirror slug for afterAll cleanup", async ({ request }) => {
+    const token = await getAuthToken(request);
+    const listRes = await request.get("/v1beta1/mirrors", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(listRes.ok(), `GET /v1beta1/mirrors failed: ${listRes.status()}`).toBe(true);
+    const body = (await listRes.json()) as DebarchiveMirrorList;
+    const created = body.results?.find((m) => m.displayName === mirrorDisplayName);
+    if (created?.name) {
+      mirrorName = created.name;
+    }
+  });
+
   test("edits the created mirror display name", async ({ page }) => {
     await dismissWelcomePopup(page);
     const updatedDisplayName = "CI Test Mirror Updated";
@@ -189,7 +202,8 @@ test.describe("mirrors CRUD (real debarchive)", () => {
     await mirrorRow.getByRole("button").last().click();
 
     // Click "Edit" in the dropdown.
-    await page.getByRole("button", { name: "Edit" }).click();
+    // ContextualMenu items render with role="menuitem" (not "button") — use that role.
+    await page.getByRole("menuitem", { name: "Edit" }).click();
 
     // Wait for the Edit side panel to open.
     await expect(
@@ -233,7 +247,8 @@ test.describe("mirrors CRUD (real debarchive)", () => {
     await mirrorRow.getByRole("button").last().click();
 
     // Click "Remove" in the dropdown.
-    await page.getByRole("button", { name: "Remove" }).click();
+    // ContextualMenu items render with role="menuitem" (not "button") — use that role.
+    await page.getByRole("menuitem", { name: "Remove" }).click();
 
     // Wait for the confirmation modal.
     await expect(

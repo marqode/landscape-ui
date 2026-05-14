@@ -76,6 +76,29 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     await page.waitForURL(/overview/, { timeout: 30_000 });
 
     await context.storageState({ path: STORAGE_STATE_PATH });
+
+    // Warm the ubuntu-archive-info blob cache. On a fresh container the first
+    // request triggers an outbound fetch to archive.ubuntu.com and
+    // esm.ubuntu.com which can take 10-30 s. Doing it here, before any test
+    // starts, prevents the AddMirrorForm's Distribution select from staying
+    // disabled past the 15 s assertion timeout.
+    const meRes = await context.request.get(`${API_URL}me`);
+    if (meRes.ok()) {
+      const meBody = await meRes.json() as { token?: string };
+      if (meBody.token) {
+        const bearer = `Bearer ${meBody.token}`;
+        await Promise.all([
+          context.request.get(`${API_URL}repository/ubuntu-archive-info`, {
+            params: { archive_type: "archive" },
+            headers: { Authorization: bearer },
+          }),
+          context.request.get(`${API_URL}repository/ubuntu-archive-info`, {
+            params: { archive_type: "ESM" },
+            headers: { Authorization: bearer },
+          }),
+        ]);
+      }
+    }
   } finally {
     await browser.close();
   }
