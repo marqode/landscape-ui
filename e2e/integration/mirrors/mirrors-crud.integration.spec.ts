@@ -223,9 +223,9 @@ test.describe.serial("mirrors CRUD (real debarchive)", () => {
     await page.locator("aside").getByRole("button", { name: "Save changes" }).click();
 
     // Wait for the side panel to close.
-    await expect(
-      page.getByRole("heading", { name: /edit/i }),
-    ).not.toBeVisible({ timeout: 15_000 });
+    // Use the panel element itself, not a heading, to avoid matching the
+    // success toast notification which also contains "edit" in its title.
+    await expect(page.locator("aside")).not.toBeVisible({ timeout: 15_000 });
 
     // The updated name should appear in the table.
     await expect(
