@@ -26,7 +26,7 @@
  * endpoint). It returns `AuthUser.token`; every subsequent call includes
  * `Authorization: Bearer <token>`.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type APIRequestContext } from "@playwright/test";
 
 // Re-use the session authenticated in global-setup.
 test.use({ storageState: "e2e/integration/.auth/state.json" });
@@ -45,7 +45,7 @@ interface Preferences {
 
 /** Fetch the JWT for subsequent authenticated API calls. */
 async function getAuthToken(
-  request: import("@playwright/test").APIRequestContext,
+  request: APIRequestContext,
 ): Promise<string> {
   const res = await request.get("/api/v2/me");
   expect(res.ok(), `GET /api/v2/me failed: ${res.status()}`).toBe(true);
@@ -59,7 +59,7 @@ async function getAuthToken(
 
 /** Fetch current org preferences. */
 async function getPreferences(
-  request: import("@playwright/test").APIRequestContext,
+  request: APIRequestContext,
   token: string,
 ): Promise<Preferences> {
   const res = await request.get("/api/v2/preferences", {
@@ -73,7 +73,7 @@ async function getPreferences(
 
 /** Overwrite the org title. */
 async function patchTitle(
-  request: import("@playwright/test").APIRequestContext,
+  request: APIRequestContext,
   token: string,
   title: string,
 ): Promise<void> {

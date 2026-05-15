@@ -31,7 +31,7 @@
  * afterAll we call `GET /api/v2/me` (cookie-authenticated) to obtain the JWT,
  * then `POST /api/v2/scripts/<id>:redact` with `Authorization: Bearer <token>`.
  */
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 
 // Re-use the session authenticated in global-setup.
 test.use({ storageState: "e2e/integration/.auth/state.json" });
@@ -45,7 +45,7 @@ interface AuthUser {
 
 /** Suppress the first-run welcome modal that otherwise intercepts page clicks. */
 async function dismissWelcomePopup(
-  page: import("@playwright/test").Page,
+  page: Page,
 ): Promise<void> {
   await page.addInitScript(() => {
     window.localStorage.setItem("_landscape_isWelcomePopupClosed", "true");
@@ -54,7 +54,7 @@ async function dismissWelcomePopup(
 
 /** Fetch the JWT for subsequent authenticated API calls. */
 async function getAuthToken(
-  request: import("@playwright/test").APIRequestContext,
+  request: APIRequestContext,
 ): Promise<string> {
   const res = await request.get("/api/v2/me");
   expect(res.ok(), `GET /api/v2/me failed: ${res.status()}`).toBe(true);
@@ -68,7 +68,7 @@ async function getAuthToken(
 
 /** Redact (delete) a script by id via the v2 API. */
 async function redactScript(
-  request: import("@playwright/test").APIRequestContext,
+  request: APIRequestContext,
   token: string,
   scriptId: number | string,
 ): Promise<void> {
