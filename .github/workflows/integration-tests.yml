@@ -221,6 +221,7 @@ jobs:
           _gid=$(id -g)
           _uname=$(whoami)
           env UID="$_uid" GID="$_gid" UNAME="$_uname" \
+            LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS="--with-computers --with-free-disk-space --with-free-memory-and-swap --with-load-averages --with-temperatures --with-network-traffic --with-active-processes --with-packages --with-package-activities --with-script-activities --with-users-and-groups --with-cpu-usage --with-ceph-usage --with-compute-usage --with-swift-usage --with-user-and-group-activities --with-custom-graph --with-scripts --with-account-password foo" \
             docker compose \
               -p "ls-integration-${{ github.run_id }}" \
               -f compose.yaml -f compose.ci-override.yaml \
