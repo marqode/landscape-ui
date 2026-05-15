@@ -106,19 +106,14 @@ curl -sf http://localhost:8080/
 ### 2. Seed the admin account (one-time per fresh stack)
 
 ```bash
-docker exec landscape-api \
-  uv run python bootstrap-account \
-  --admin_email "ci-admin@example.com" \
-  --admin_name "CI Test Admin" \
-  --admin_password "mysecret" \
-  --root_url "http://localhost:5173/"
+LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS="--with-computers --with-free-disk-space --with-free-memory-and-swap --with-load-averages --with-temperatures --with-network-traffic --with-active-processes --with-packages --with-package-activities --with-script-activities --with-users-and-groups --with-cpu-usage --with-ceph-usage --with-compute-usage --with-swift-usage --with-user-and-group-activities --with-custom-graph --with-scripts --with-account-password pwd" make up
 ```
 
 Create `.env.integration.local` in this repo root (gitignored):
 
 ```ini
-CI_ADMIN_EMAIL=ci-admin@example.com
-CI_ADMIN_PASSWORD=mysecret
+CI_ADMIN_EMAIL=john@example.com
+CI_ADMIN_PASSWORD=pwd
 ```
 
 ### 3. Install Playwright browsers (first time or after upgrades)

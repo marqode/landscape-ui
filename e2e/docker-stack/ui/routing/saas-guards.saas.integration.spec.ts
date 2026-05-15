@@ -47,7 +47,7 @@ test.describe("SaaS mode", () => {
     await page.goto("/instances");
     await page.waitForLoadState("networkidle");
     await expect(
-      page.getByRole("heading", { name: /instances/i }),
+      page.getByRole("heading", { name: "Instances", exact: true }),
     ).toBeVisible({ timeout: 15_000 });
   });
 
@@ -58,7 +58,7 @@ test.describe("SaaS mode", () => {
         await page.goto("/instances");
         await page.waitForLoadState("networkidle");
         await expect(
-          page.getByRole("heading", { name: /instances/i }),
+          page.getByRole("heading", { name: "Instances", exact: true }),
         ).toBeVisible({ timeout: 15_000 });
 
         // Now navigate to the self-hosted-only route and assert the guard fires.

@@ -16,7 +16,7 @@ test.describe("instances list (real backend)", () => {
     // The page must not be stuck on a loading spinner or error screen.
     // A heading confirms the route resolved correctly.
     await expect(
-      page.getByRole("heading", { name: /instances/i }),
+      page.getByRole("heading", { name: "Instances", exact: true }),
     ).toBeVisible({ timeout: 15_000 });
   });
 });
