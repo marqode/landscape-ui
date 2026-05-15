@@ -17,7 +17,7 @@ export default defineConfig({
 
   webServer: {
     cwd: "../../",
-    command: "vite --mode e2e",
+    command: "vite --mode e2e.selfHosted",
     url: BASE_URL,
     reuseExistingServer: true,
     timeout: 120_000,

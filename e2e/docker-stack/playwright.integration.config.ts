@@ -25,7 +25,7 @@ export default defineConfig({
   // so cookies are same-origin and session auth persists across navigations.
   webServer: {
     cwd: "../../",
-    command: "vite --mode e2e",
+    command: "vite --mode e2e.selfHosted",
     url: BASE_URL,
     reuseExistingServer: false,
     timeout: 120_000,
