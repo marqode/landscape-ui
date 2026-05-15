@@ -3,6 +3,28 @@
 
 ---
 
+## 26.10.0.1210-beta
+
+### Minor Changes
+
+- Replace chart.js pie with pure SVG donut, improve accessibility
+- Add mirror package filter options
+- Add mirror packages tab
+- Add containerized test environment with API and e2e tests against dockerized backend stack
+
+### Patch Changes
+
+- Show GPG Key in mirrors and publications, unlock publications distribution fields if non-signature-preserving, and lock link type field for publication target
+- Fix API param to remove GPG key. Better options for gpg keys on edit mirror form: users can keep their current key, remove it, or add a new one
+- Fix instances page actions grouping so it doesn't overflow horizontally
+- Include empty Associated Publications table in Publication Targets
+- Add gpg key fingerprint to sources table on repo profiles, fix PUT param empty string replacement
+- Allow selection of more than one architecture when creating a publication
+- Clear package filter field in add mirror form when preserve signatures is checked
+- Add preserve signatures field to mirror add / edit forms and details view.
+- Fix profiles sidepanels cancel and close behavior to be consistent with new design
+- Keyboard a11y and arrow-key navigation for saved-searches dropdown
+
 ## 26.10.0.1081-beta
 
 ### Minor Changes
