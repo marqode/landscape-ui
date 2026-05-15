@@ -138,7 +138,7 @@ test.describe("scripts page (real backend)", () => {
     // ── 5. Submit the form ───────────────────────────────────────────────────
     // The side panel renders as <aside>. Target the submit button inside it to
     // avoid hitting the page-header "Add script" button with the same name.
-    await page.locator("aside").getByRole("button", { name: /add script/i }).click();
+    await page.getByRole("complementary", { name: "Side panel" }).getByRole("button", { name: /add script/i }).click();
 
     // ── 6. Wait for the panel to close and the list to refresh ───────────────
     await page.waitForLoadState("networkidle");

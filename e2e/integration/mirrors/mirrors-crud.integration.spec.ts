@@ -211,21 +211,16 @@ test.describe.serial("mirrors CRUD (real debarchive)", () => {
     ).toBeVisible({ timeout: 15_000 });
 
     // Update the display name.
-    // Scope to aside to avoid matching other panels; use fill() directly (it
-    // clears first internally) to avoid a transient empty-value Yup validation
-    // error that can leave Formik in invalid state before the submit click.
-    const nameInput = page.locator("aside").getByLabel("Name");
+    const nameInput = page.getByRole("complementary", { name: "Side panel" }).getByLabel("Name");
     await nameInput.fill(updatedDisplayName);
     // Confirm Formik has processed the change before submitting.
     await expect(nameInput).toHaveValue(updatedDisplayName);
 
     // Submit.
-    await page.locator("aside").getByRole("button", { name: "Save changes" }).click();
+    await page.getByRole("complementary", { name: "Side panel" }).getByRole("button", { name: "Save changes" }).click();
 
     // Wait for the side panel to close.
-    // Use the panel element itself, not a heading, to avoid matching the
-    // success toast notification which also contains "edit" in its title.
-    await expect(page.locator("aside")).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("complementary", { name: "Side panel" })).not.toBeVisible({ timeout: 15_000 });
 
     // The updated name should appear in the table.
     await expect(

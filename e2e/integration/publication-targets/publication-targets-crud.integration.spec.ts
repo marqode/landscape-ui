@@ -156,8 +156,7 @@ test.describe("publication targets CRUD (real debarchive)", () => {
     await page.getByLabel(/aws secret access key/i).fill("wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY");
 
     // Submit the form. Scope to the aside to avoid hitting the page-level button.
-    await page
-      .locator("aside")
+    await page.getByRole("complementary", { name: "Side panel" })
       .getByRole("button", { name: /add publication target/i })
       .click();
 
@@ -230,9 +229,9 @@ test.describe("publication targets CRUD (real debarchive)", () => {
     await expect(nameInput).toHaveValue(updatedDisplayName);
 
     // Submit.
-    await page.locator("aside").getByRole("button", { name: /save changes/i }).click();
+    await page.getByRole("complementary", { name: "Side panel" }).getByRole("button", { name: /save changes/i }).click();
 
-    await expect(page.locator("aside")).not.toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("complementary", { name: "Side panel" })).not.toBeVisible({ timeout: 15_000 });
 
     // The updated name should appear in the table.
     await expect(
