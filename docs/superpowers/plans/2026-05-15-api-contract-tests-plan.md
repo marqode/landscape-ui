@@ -10,7 +10,15 @@
 
 ---
 
-### Task 1: Document Backend Test Context
+### Task 1: Ensure landscape-server sample data is seeded in CI
+
+**Files:**
+- Modify: `forks/landscape-ui/.github/workflows/integration-tests.yml`
+
+- [ ] **Step 1: Update CI workflow to seed full sample data**
+Modify the "Seed admin account" step (or add a new step) in `.github/workflows/integration-tests.yml` to ensure the backend is seeded with realistic test data. This can be done by running `landscape-server/canonical/landscape/sample/sample.py` inside the `landscape-api` container or by passing the appropriate flags (e.g. `--with-computers --with-scripts`, etc.) to the bootstrap command, mirroring the local development seeding workflow.
+
+### Task 2: Document Backend Test Context
 
 **Files:**
 - Create: `forks/landscape-ui/e2e/docker-stack/ui/backend-test-context.md`
