@@ -16,7 +16,7 @@ export default defineConfig({
   retries: 1,
   forbidOnly: !!process.env.CI,
 
-  globalSetup: "./e2e/docker-stack/ui/global-setup.ts",
+  globalSetup: "./e2e/docker-stack/global-setup.ts",
 
   reporter: [["html", { open: "never", outputFolder: "playwright-integration-report" }], ["list"]],
 

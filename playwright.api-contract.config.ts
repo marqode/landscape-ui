@@ -11,7 +11,7 @@ export default defineConfig({
   retries: 1,
   forbidOnly: !!process.env.CI,
 
-  globalSetup: "./e2e/docker-stack/ui/global-setup.ts",
+  globalSetup: "./e2e/docker-stack/global-setup.ts",
 
   reporter: [["html", { open: "never", outputFolder: "playwright-api-contract-report" }], ["list"]],
 
@@ -29,6 +29,6 @@ export default defineConfig({
     trace: "on-first-retry",
     video: "retain-on-failure",
     ignoreHTTPSErrors: true,
-    storageState: "e2e/docker-stack/ui/.auth/state.json",
+    storageState: "e2e/docker-stack/.auth/state.json",
   },
 });

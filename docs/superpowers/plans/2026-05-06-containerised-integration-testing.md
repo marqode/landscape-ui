@@ -390,7 +390,7 @@ jobs:
         run: |
           docker compose -p "ls-integration-${{ github.run_id }}" \
             exec -T api \
-            uv run bootstrap-account \
+            uv run sample.py data seeding \
               --admin_email "$CI_ADMIN_EMAIL" \
               --admin_name "CI Test Admin" \
               --admin_password "$CI_ADMIN_PASSWORD" \
@@ -520,7 +520,7 @@ Wait until both `http://localhost:9091/` and `http://localhost:8080/` respond.
 ```bash
 # Create admin account
 docker compose exec -T api \
-  uv run bootstrap-account \
+  uv run sample.py data seeding \
   --admin_email ci-admin@example.com \
   --admin_name "CI Test Admin" \
   --admin_password mysecret \

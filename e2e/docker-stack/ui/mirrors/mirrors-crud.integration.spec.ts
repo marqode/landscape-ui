@@ -39,7 +39,7 @@
  */
 import { expect, test, type Page, type APIRequestContext } from "@playwright/test";
 
-test.use({ storageState: "e2e/docker-stack/ui/.auth/state.json" });
+test.use({ storageState: "e2e/docker-stack/.auth/state.json" });
 
 // ─── shared state ────────────────────────────────────────────────────────────
 

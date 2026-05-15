@@ -12,7 +12,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
 
   // Reuses the same globalSetup (same backend, same auth flow).
-  globalSetup: "./e2e/docker-stack/ui/global-setup.ts",
+  globalSetup: "./e2e/docker-stack/global-setup.ts",
 
   reporter: [
     ["html", { open: "never", outputFolder: "playwright-integration-saas-report" }],

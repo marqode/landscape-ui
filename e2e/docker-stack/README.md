@@ -50,22 +50,13 @@ curl -sf http://localhost:9091/api/v2/login/methods
 curl -sf http://localhost:8080/
 ```
 
-### 2. Environment Variables
-
-The backend initialization scripts seed a default `john@example.com` account. Create `.env.integration.local` in the repo root (gitignored):
-
-```ini
-CI_ADMIN_EMAIL=john@example.com
-CI_ADMIN_PASSWORD=pwd
-```
-
-### 3. Install browsers (first time)
+### 2. Install browsers (first time)
 
 ```bash
 pnpm exec playwright install chromium
 ```
 
-### 4. Run the tests
+### 3. Run the tests
 
 You can run individual suites based on your needs:
 
@@ -131,7 +122,7 @@ Name the file `*.saas.integration.spec.ts`. These run with `VITE_SELF_HOSTED_ENV
 ```ts
 import { test, expect } from "@playwright/test";
 
-test.use({ storageState: "e2e/docker-stack/ui/.auth/state.json" });
+test.use({ storageState: "e2e/docker-stack/.auth/state.json" });
 
 test("self-hosted-only route redirects to /env-error in SaaS mode", async ({ page }) => {
   await page.goto("/instances");

@@ -31,7 +31,7 @@
  */
 import { expect, test } from "@playwright/test";
 
-test.use({ storageState: "e2e/docker-stack/ui/.auth/state.json" });
+test.use({ storageState: "e2e/docker-stack/.auth/state.json" });
 
 const SELF_HOSTED_ONLY_ROUTES = [
   "/repositories/publication-targets",

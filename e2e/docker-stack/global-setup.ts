@@ -2,7 +2,7 @@ import { chromium, type FullConfig } from "@playwright/test";
 import fs from "fs";
 import path from "path";
 
-const STORAGE_STATE_PATH = "e2e/docker-stack/ui/.auth/state.json";
+const STORAGE_STATE_PATH = "e2e/docker-stack/.auth/state.json";
 // Must match playwright.integration.config.ts › use.baseURL; FullConfig is not
 // reliably populated when globalSetup runs ahead of webServer startup.
 const BASE_URL = "http://localhost:5173";
@@ -20,19 +20,8 @@ if (fs.existsSync(ENV_FILE)) {
 }
 
 export default async function globalSetup(_config: FullConfig): Promise<void> {
-  const email = process.env.CI_ADMIN_EMAIL;
-  const password = process.env.CI_ADMIN_PASSWORD;
-
-  if (!email || !password) {
-    throw new Error(
-      [
-        "Integration tests require CI_ADMIN_EMAIL and CI_ADMIN_PASSWORD.",
-        `Locally, create ${ENV_FILE} with:`,
-        "  CI_ADMIN_EMAIL=john@example.com",
-        "  CI_ADMIN_PASSWORD=pwd",
-      ].join("\n"),
-    );
-  }
+  const email = process.env.CI_ADMIN_EMAIL || "john@example.com";
+  const password = process.env.CI_ADMIN_PASSWORD || "pwd";
 
   // Verify the seeded account is reachable before launching a browser.
   let apiReachable = false;
@@ -64,11 +53,11 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
     const form = page.locator('input[name="identifier"]');
     const formVisible = await form.waitFor({ state: "visible", timeout: 10_000 }).then(() => true).catch(() => false);
     if (!formVisible) {
-      await page.screenshot({ path: "e2e/docker-stack/ui/.auth/login-debug.png" });
+      await page.screenshot({ path: "e2e/docker-stack/.auth/login-debug.png" });
       throw new Error(
         "Login form did not appear at /login.\n" +
-          "The password login method may not be enabled. Ensure bootstrap-account ran\n" +
-          "on a fresh database — see docs/integration-testing.md step 1.",
+          "The password login method may not be enabled. Ensure the backend stack was started\n" +
+          "with LANDSCAPE_BOOTSTRAP_SCHEMA_ARGS — see e2e/docker-stack/README.md.",
       );
     }
 

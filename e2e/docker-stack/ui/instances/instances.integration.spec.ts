@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test";
 
 // Re-use the session authenticated in global-setup — no login step needed.
-test.use({ storageState: "e2e/docker-stack/ui/.auth/state.json" });
+test.use({ storageState: "e2e/docker-stack/.auth/state.json" });
 
 test.describe("instances list (real backend)", () => {
   test("renders instances page from the real API", async ({ page }) => {

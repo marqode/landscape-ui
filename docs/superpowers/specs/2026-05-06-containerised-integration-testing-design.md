@@ -38,7 +38,7 @@ The goal is a CI job that:
 │         postgresql  ──healthcheck──►  builder (schema init)             │
 │         rabbitmq    ──healthcheck──►  api, appserver, …                 │
 │  4. Wait for auth path to be ready                                      │
-│  5. Seed: bootstrap-account → sample.py                                 │
+│  5. Seed: sample.py data seeding → sample.py                                 │
 │  6. pnpm build:e2e + pnpm preview (Playwright owns the server)          │
 │  7. playwright test --config playwright.integration.config.ts           │
 │  8. Upload report, teardown stack                                       │
@@ -87,7 +87,7 @@ Once both are healthy, seeding runs in two steps:
 **Step 1 — Account bootstrap:**
 ```bash
 docker compose -p "ls-integration-${RUN_ID}" exec -T api \
-  uv run bootstrap-account \
+  uv run sample.py data seeding \
   --admin_email "$CI_ADMIN_EMAIL" \
   --admin_name "CI Test Admin" \
   --admin_password "$CI_ADMIN_PASSWORD" \
@@ -144,7 +144,7 @@ VITE_MSW_ENABLED=false
 | 3   | Generate ephemeral password        | `openssl rand -hex 16 >> $GITHUB_ENV`                                                    |
 | 4   | Start backend stack                | `docker compose up -d` with explicit Phase 1 service list                                |
 | 5   | Wait for API + appserver           | Poll both `:9091` and `:8080` before proceeding                                          |
-| 6   | Seed: bootstrap-account            | `docker compose exec -T api uv run bootstrap-account` (underscored flags)                |
+| 6   | Seed: sample.py data seeding            | `docker compose exec -T api uv run sample.py data seeding` (underscored flags)                |
 | 7   | Seed: sample data                  | `docker compose exec -T api uv run sample`                                               |
 | 8   | Install pnpm + Node                | pnpm 10, Node 24                                                                         |
 | 9   | pnpm install                       | `--frozen-lockfile`                                                                      |
