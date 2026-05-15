@@ -41,7 +41,8 @@ jobs:
 
     env:
       LANDSCAPE_DEPLOYMENT_MODE: standalone
-      CI_ADMIN_EMAIL: ci-admin@example.com
+      CI_ADMIN_EMAIL: john@example.com
+      CI_ADMIN_PASSWORD: pwd
 
     steps:
       # Current repo checkout uses the implicit GITHUB_TOKEN — no App token needed.
@@ -118,12 +119,6 @@ jobs:
           cd .landscape-packaging/landscape-go
           GOPRIVATE="github.com/canonical/*" go mod vendor
           echo "Vendored $(find vendor -name '*.go' | wc -l) Go source files"
-
-      - name: Generate ephemeral CI password
-        run: |
-          _pass=$(openssl rand -hex 16)
-          echo "::add-mask::$_pass"
-          echo "CI_ADMIN_PASSWORD=$_pass" >> "$GITHUB_ENV"
 
       - name: Create landscape-server bind-mount directories
         run: |
@@ -308,15 +303,6 @@ jobs:
             exit 1
           }
 
-      - name: Seed admin account
-        run: |
-          docker exec landscape-api \
-            uv run python bootstrap-account \
-              --admin_email "$CI_ADMIN_EMAIL" \
-              --admin_name "CI Test Admin" \
-              --admin_password "$CI_ADMIN_PASSWORD" \
-              --root_url "http://localhost:5173/"
-
       - name: Set up pnpm
         uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda # v4.1.0
         with:
@@ -340,13 +326,13 @@ jobs:
           CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
           CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
 
-      - name: Run integration tests
+      - name: Run e2e selfHosted tests
         run: pnpm exec playwright test --config playwright.integration.config.ts
         env:
           CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
           CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
 
-      - name: Run SaaS mode guard tests
+      - name: Run e2e Saas tests
         run: pnpm exec playwright test --config playwright.integration.saas.config.ts
         env:
           CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}

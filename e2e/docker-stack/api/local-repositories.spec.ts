@@ -8,34 +8,37 @@ function validateLocalShape(repo: Local): repo is Local {
 
 test.describe("Local Repositories API Contract", () => {
   const testRepoName = `test-local-repo-${Date.now()}`;
+  let createdRepoName: string | undefined;
 
   test.afterAll(async ({ request }) => {
-    await request.delete(`/api/v2/locals/${testRepoName}`);
+    if (createdRepoName) {
+      await request.delete(`/v1beta1/${createdRepoName}`);
+    }
   });
 
-  test("POST /api/v2/locals accepts payload and returns Local shape", async ({
+  test("POST /v1beta1/locals accepts payload and returns Local shape", async ({
     request,
   }) => {
     const payload: LocalWritable = {
-      displayName: "Test Repository",
-      name: testRepoName,
+      displayName: testRepoName,
       comment: "A test repository created by Playwright API test",
       defaultDistribution: "focal",
       defaultComponent: "main",
     };
 
-    const response = await request.post("/api/v2/locals", { data: payload });
+    const response = await request.post("/v1beta1/locals", { data: payload });
     expect(response.ok(), await response.text()).toBeTruthy();
 
     const body = await response.json();
     validateLocalShape(body);
-    expect(body.name).toBe(testRepoName);
+    expect(body.name).toContain("locals/");
+    createdRepoName = body.name;
   });
 
-  test("GET /api/v2/locals returns list containing our repo", async ({
+  test("GET /v1beta1/locals returns list containing our repo", async ({
     request,
   }) => {
-    const response = await request.get("/api/v2/locals");
+    const response = await request.get("/v1beta1/locals");
     expect(response.ok()).toBeTruthy();
 
     const body = await response.json();
@@ -46,7 +49,7 @@ test.describe("Local Repositories API Contract", () => {
       validateLocalShape(body.locals[0]);
     }
 
-    const found = body.locals.find((repo: Local) => repo.name === testRepoName);
+    const found = body.locals.find((repo: Local) => repo.name === createdRepoName);
     expect(found).toBeDefined();
   });
 });

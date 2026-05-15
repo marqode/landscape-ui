@@ -28,8 +28,8 @@ export default async function globalSetup(_config: FullConfig): Promise<void> {
       [
         "Integration tests require CI_ADMIN_EMAIL and CI_ADMIN_PASSWORD.",
         `Locally, create ${ENV_FILE} with:`,
-        "  CI_ADMIN_EMAIL=ci-admin@example.com",
-        "  CI_ADMIN_PASSWORD=<your-password>",
+        "  CI_ADMIN_EMAIL=john@example.com",
+        "  CI_ADMIN_PASSWORD=pwd",
       ].join("\n"),
     );
   }
