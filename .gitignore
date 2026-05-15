@@ -34,6 +34,7 @@ src/**/*.module.scss.d.ts
 /test-results/
 /playwright-report/
 /playwright-integration-report/
+/playwright-integration-saas-report/
 /playwright-api-contract-report/
 /playwright/
 /docs/superpowers

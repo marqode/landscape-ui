@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 const BASE_URL = "http://localhost:5173";
 
 export default defineConfig({
-  testDir: "e2e/docker-stack/api",
+  testDir: "./api",
   testMatch: "**/*.spec.ts",
 
   workers: 1,
@@ -11,11 +11,12 @@ export default defineConfig({
   retries: 1,
   forbidOnly: !!process.env.CI,
 
-  globalSetup: "./e2e/docker-stack/global-setup.ts",
+  globalSetup: "./global-setup.ts",
 
-  reporter: [["html", { open: "never", outputFolder: "playwright-api-contract-report" }], ["list"]],
+  reporter: [["html", { open: "never", outputFolder: "../../playwright-api-contract-report" }], ["list"]],
 
   webServer: {
+    cwd: "../../",
     command: "vite --mode e2e",
     url: BASE_URL,
     reuseExistingServer: true,

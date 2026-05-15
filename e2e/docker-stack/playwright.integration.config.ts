@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 const BASE_URL = "http://localhost:5173";
 
 export default defineConfig({
-  testDir: "e2e/docker-stack/ui",
+  testDir: "./ui",
   testMatch: "**/*.integration.spec.ts",
   // SaaS-mode tests use a different Vite server mode and must run separately.
   // Exclude them here so self-hosted mode doesn't try to run them (they would
@@ -16,14 +16,15 @@ export default defineConfig({
   retries: 1,
   forbidOnly: !!process.env.CI,
 
-  globalSetup: "./e2e/docker-stack/global-setup.ts",
+  globalSetup: "./global-setup.ts",
 
-  reporter: [["html", { open: "never", outputFolder: "playwright-integration-report" }], ["list"]],
+  reporter: [["html", { open: "never", outputFolder: "../../playwright-integration-report" }], ["list"]],
 
   // Playwright manages the dev server lifecycle.
   // No build step required — the Vite dev proxy routes /api → localhost:9091
   // so cookies are same-origin and session auth persists across navigations.
   webServer: {
+    cwd: "../../",
     command: "vite --mode e2e",
     url: BASE_URL,
     reuseExistingServer: false,

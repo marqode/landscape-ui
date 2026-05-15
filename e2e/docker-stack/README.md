@@ -62,13 +62,13 @@ You can run individual suites based on your needs:
 
 ```bash
 # API Contract Tests (Fast, no browser UI)
-pnpm exec playwright test --config playwright.api-contract.config.ts
+pnpm exec playwright test --config e2e/docker-stack/playwright.api-contract.config.ts
 
 # UI - Self-hosted mode
-pnpm exec playwright test --config playwright.integration.config.ts
+pnpm exec playwright test --config e2e/docker-stack/playwright.integration.config.ts
 
 # UI - SaaS mode (VITE_SELF_HOSTED_ENV=false)
-pnpm exec playwright test --config playwright.integration.saas.config.ts
+pnpm exec playwright test --config e2e/docker-stack/playwright.integration.saas.config.ts
 ```
 
 Test reports are written to:

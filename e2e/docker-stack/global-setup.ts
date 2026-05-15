@@ -3,7 +3,7 @@ import fs from "fs";
 import path from "path";
 
 const STORAGE_STATE_PATH = "e2e/docker-stack/.auth/state.json";
-// Must match playwright.integration.config.ts › use.baseURL; FullConfig is not
+// Must match e2e/docker-stack/playwright.integration.config.ts › use.baseURL; FullConfig is not
 // reliably populated when globalSetup runs ahead of webServer startup.
 const BASE_URL = "http://localhost:5173";
 const API_URL = "http://localhost:9091/api/v2/";
