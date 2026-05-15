@@ -23,6 +23,7 @@ export default defineConfig({
   // Playwright manages the dev server lifecycle.
   // No build step required — the Vite dev proxy routes /api → localhost:9091
   // so cookies are same-origin and session auth persists across navigations.
+  // Starts Vite in e2e.selfHosted mode → loads .env.e2e.selfHosted (VITE_SELF_HOSTED_ENV=true).
   webServer: {
     cwd: "../../",
     command: "vite --mode e2e.selfHosted",

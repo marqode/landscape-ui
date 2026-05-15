@@ -64,10 +64,10 @@ You can run individual suites based on your needs:
 # API Contract Tests (Fast, no browser UI)
 pnpm exec playwright test --config e2e/docker-stack/playwright.api-contract.config.ts
 
-# UI - Self-hosted mode
+# UI - Self-hosted mode (loads .env.e2e.selfHosted)
 pnpm exec playwright test --config e2e/docker-stack/playwright.integration.config.ts
 
-# UI - SaaS mode (VITE_SELF_HOSTED_ENV=false)
+# UI - SaaS mode (loads .env.e2e.saas)
 pnpm exec playwright test --config e2e/docker-stack/playwright.integration.saas.config.ts
 ```
 

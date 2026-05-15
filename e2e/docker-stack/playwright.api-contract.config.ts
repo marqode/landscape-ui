@@ -15,6 +15,8 @@ export default defineConfig({
 
   reporter: [["html", { open: "never", outputFolder: "../../playwright-api-contract-report" }], ["list"]],
 
+  // Starts Vite in e2e.selfHosted mode → loads .env.e2e.selfHosted to proxy
+  // requests so tests can share the exact same UI session cookie natively.
   webServer: {
     cwd: "../../",
     command: "vite --mode e2e.selfHosted",
