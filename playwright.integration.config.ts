@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 const BASE_URL = "http://localhost:5173";
 
 export default defineConfig({
-  testDir: "e2e/integration",
+  testDir: "e2e/docker-stack/ui",
   testMatch: "**/*.integration.spec.ts",
   // SaaS-mode tests use a different Vite server mode and must run separately.
   // Exclude them here so self-hosted mode doesn't try to run them (they would
@@ -16,7 +16,7 @@ export default defineConfig({
   retries: 1,
   forbidOnly: !!process.env.CI,
 
-  globalSetup: "./e2e/integration/global-setup.ts",
+  globalSetup: "./e2e/docker-stack/ui/global-setup.ts",
 
   reporter: [["html", { open: "never", outputFolder: "playwright-integration-report" }], ["list"]],
 

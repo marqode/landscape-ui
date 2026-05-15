@@ -3,27 +3,22 @@ import { defineConfig } from "@playwright/test";
 const BASE_URL = "http://localhost:5173";
 
 export default defineConfig({
-  testDir: "e2e/docker-stack/ui",
-  testMatch: "**/*.saas.integration.spec.ts",
+  testDir: "e2e/docker-stack/api",
+  testMatch: "**/*.spec.ts",
 
   workers: 1,
   fullyParallel: false,
   retries: 1,
   forbidOnly: !!process.env.CI,
 
-  // Reuses the same globalSetup (same backend, same auth flow).
   globalSetup: "./e2e/docker-stack/ui/global-setup.ts",
 
-  reporter: [
-    ["html", { open: "never", outputFolder: "playwright-integration-saas-report" }],
-    ["list"],
-  ],
+  reporter: [["html", { open: "never", outputFolder: "playwright-api-contract-report" }], ["list"]],
 
-  // Starts Vite in e2e.saas mode → loads .env.e2e.saas (VITE_SELF_HOSTED_ENV=false).
   webServer: {
-    command: "vite --mode e2e.saas",
+    command: "vite --mode e2e",
     url: BASE_URL,
-    reuseExistingServer: false,
+    reuseExistingServer: true,
     timeout: 120_000,
     stdout: "pipe",
     stderr: "pipe",
@@ -34,5 +29,6 @@ export default defineConfig({
     trace: "on-first-retry",
     video: "retain-on-failure",
     ignoreHTTPSErrors: true,
+    storageState: "e2e/docker-stack/ui/.auth/state.json",
   },
 });

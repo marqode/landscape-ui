@@ -333,6 +333,12 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Run API Contract tests
+        run: pnpm exec playwright test --config playwright.api-contract.config.ts
+        env:
+          CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
+          CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
+
       - name: Run integration tests
         run: pnpm exec playwright test --config playwright.integration.config.ts
         env:
@@ -344,6 +350,14 @@ jobs:
         env:
           CI_ADMIN_EMAIL: ${{ env.CI_ADMIN_EMAIL }}
           CI_ADMIN_PASSWORD: ${{ env.CI_ADMIN_PASSWORD }}
+
+      - name: Upload API Contract test report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-api-contract-report
+          path: playwright-api-contract-report
+          retention-days: 14
 
       - name: Upload self-hosted test report
         if: always()

@@ -165,11 +165,11 @@ Key config:
 ```ts
 // playwright.integration.config.ts
 export default defineConfig({
-  testDir: "e2e/integration",
+  testDir: "e2e/docker-stack/ui",
   testMatch: "**/*.integration.spec.ts",
   workers: 1,           // shared backend state; no parallel mutation
   retries: 1,
-  globalSetup: "./e2e/integration/global-setup.ts",
+  globalSetup: "./e2e/docker-stack/ui/global-setup.ts",
 
   webServer: {
     command: "pnpm preview",
@@ -190,7 +190,7 @@ export default defineConfig({
 **`global-setup.ts`** runs before any test and:
 1. Validates `CI_ADMIN_EMAIL` and `CI_ADMIN_PASSWORD` are set — fails fast if missing.
 2. Makes one authenticated API request to confirm the seeded account is reachable.
-3. Logs in via Playwright and writes `storageState` to `e2e/integration/.auth/state.json` so individual tests skip the login flow.
+3. Logs in via Playwright and writes `storageState` to `e2e/docker-stack/ui/.auth/state.json` so individual tests skip the login flow.
 
 **`workers: 1`** is required in Phase 1. The backend is a shared mutable instance; parallel writes would introduce flakiness immediately. Tests are read-only against sample data.
 
@@ -200,7 +200,7 @@ export default defineConfig({
 
 Two test files. Both reuse the `storageState` written by `global-setup.ts` — no per-test login needed.
 
-### `e2e/integration/auth/login.integration.spec.ts`
+### `e2e/docker-stack/ui/auth/login.integration.spec.ts`
 
 Does **not** use storageState (explicitly tests the login flow itself):
 - Navigates to `/login` in a fresh browser context
@@ -208,7 +208,7 @@ Does **not** use storageState (explicitly tests the login flow itself):
 - Submits the form
 - Asserts redirect to dashboard (`/overview`)
 
-### `e2e/integration/computers/computers.integration.spec.ts`
+### `e2e/docker-stack/ui/computers/computers.integration.spec.ts`
 
 Uses storageState (authenticated):
 - Navigates to the computers list route
@@ -238,8 +238,8 @@ This validates the real `GET /api/v2/computers` response shape makes it to the U
 
 - [ ] `.github/workflows/integration-tests.yml` (workflow_dispatch trigger)
 - [ ] Add `integration` project to `playwright.config.ts`
-- [ ] `e2e/integration/auth/login.integration.spec.ts`
-- [ ] `e2e/integration/computers/computers.integration.spec.ts`
+- [ ] `e2e/docker-stack/ui/auth/login.integration.spec.ts`
+- [ ] `e2e/docker-stack/ui/computers/computers.integration.spec.ts`
 - [ ] `docs/integration-testing.md`
 
 ### Phase 2 — Sample data expansion and SaaS mode
